@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  engineType      = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Trạng thái của một chiến dịch gửi mail
+enum CampaignStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+// Trạng thái của từng email trong chiến dịch
+enum MailLogStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  BOUNCED
+  OPENED
+  FAILED
+  CANCELLED
+}
+
+// Bảng Campaigns: quản lý các chiến dịch gửi email
+model Campaign {
+  id               String         @id @default(uuid())
+  name             String
+  subject          String
+  htmlBody         String         @map("html_body") @db.Text
+  status           CampaignStatus @default(PENDING)
+  totalEmails      Int            @default(0) @map("total_emails")
+  sentCount        Int            @default(0) @map("sent_count")
+  failedCount      Int            @default(0) @map("failed_count")
+  createdBy        String         @map("created_by") // Google User email
+  googleSheetUrl   String?        @map("google_sheet_url")
+  sheetName        String?        @map("sheet_name")
+  sheetId          Int?           @map("sheet_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  // Relation to MailLogs
+  mailLogs MailLog[]
+
+  @@map("campaigns")
+}
+
+// Bảng MarketingContacts: quản lý danh sách người dùng từ sự kiện
+model MarketingContact {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  phoneNumber String?  @map("phone_number")
+  fullName    String?  @map("full_name")
+  eventSource String?  @map("event_source")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("marketing_contacts")
+}
+
+// Bảng UserTokens: lưu trữ Google OAuth tokens để worker dùng Google Sheets API
+model UserToken {
+  email        String   @id
+  accessToken  String   @map("access_token") @db.Text
+  refreshToken String?  @map("refresh_token") @db.Text
+  tokenExpiry  DateTime? @map("token_expiry")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("user_tokens")
+}
+
+// Bảng MailLogs: tracking từng email được gửi trong chiến dịch
+model MailLog {
+  id             String        @id @default(uuid())
+  campaignId     String        @map("campaign_id")
+  recipientEmail String        @map("recipient_email")
+  recipientName  String?       @map("recipient_name")
+  status         MailLogStatus @default(QUEUED)
+  awsMessageId   String?       @map("aws_message_id") // ID từ AWS SES để tracking webhook
+  errorMessage   String?       @map("error_message") @db.Text
+  rowIndex       Int?          @map("row_index") // Vị trí dòng trong Google Sheet (1-based)
+  sentAt         DateTime?     @map("sent_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relation to Campaign
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([awsMessageId])
+  @@map("mail_logs")
+}
