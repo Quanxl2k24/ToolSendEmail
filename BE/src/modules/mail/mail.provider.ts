@@ -2,40 +2,75 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { logger } from "../../core/utils/logger.js";
 
-/**
- * mail.provider.ts
- *
- * Initializes the Nodemailer transporter using SMTP credentials from .env.
- * In Phase 2, this file can be replaced with a Resend/SendGrid SDK provider
- * without touching any other business logic.
- *
- * Required ENV vars:
- *   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
- */
-
 let transporter: Transporter | null = null;
+let initPromise: Promise<void> | null = null;
 
-export const getMailTransporter = (): Transporter => {
-  if (transporter) return transporter;
+const initializeTransporter = async (): Promise<void> => {
+  if (process.env.SMTP_MODE === "sandbox") {
+    const testAccount = await nodemailer.createTestAccount();
+    logger.info("Ethereal sandbox account created", {
+      user: testAccount.user,
+      pass: testAccount.pass,
+      webUrl: "https://ethereal.email/login",
+    });
+    transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: { user: testAccount.user, pass: testAccount.pass },
+    });
+  } else {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT ?? 587),
+      secure: Number(process.env.SMTP_PORT ?? 587) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
 
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: Number(process.env.SMTP_PORT ?? 587) === 465,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+  await new Promise<void>((resolve, reject) => {
+    transporter!.verify((error: Error | null) => {
+      if (error) {
+        logger.error("SMTP connection failed", { error: String(error) });
+        reject(error);
+      } else {
+        logger.info("SMTP server is ready to send emails.");
+        resolve();
+      }
+    });
   });
+};
 
-  // Verify connection on startup
-  transporter.verify((error: Error | null) => {
-    if (error) {
-      logger.error("SMTP connection failed", { error: String(error) });
-    } else {
-      logger.info("SMTP server is ready to send emails.");
-    }
+export const getMailTransporter = async (): Promise<Transporter> => {
+  if (initPromise) {
+    await initPromise;
+    return transporter!;
+  }
+
+  initPromise = initializeTransporter();
+  await initPromise;
+  return transporter!;
+};
+
+// Eager initialization: bắt đầu connect SMTP ngay khi module load,
+// không chặn server startup nhưng log sẽ xuất hiện sớm
+initPromise = initializeTransporter().catch((err) => {
+  logger.error("SMTP initialization failed (will retry on first send)", {
+    error: String(err),
   });
+  // Reset để lần gọi đầu tiên của getMailTransporter sẽ thử lại
+  initPromise = null;
+});
 
-  return transporter;
+export const getSenderAddress = (): string => {
+  return process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@localhost";
+};
+
+export const getTestMessageUrl = (info: any): string | null => {
+  if (process.env.SMTP_MODE !== "sandbox") return null;
+  const url = nodemailer.getTestMessageUrl(info);
+  return url || null;
 };

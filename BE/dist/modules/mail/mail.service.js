@@ -1,45 +1,25 @@
-import { getSESClient } from "./aws-ses.provider.js";
-import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { getMailTransporter, getSenderAddress, getTestMessageUrl } from "./mail.provider.js";
 import { logger } from "../../core/utils/logger.js";
-/**
- * mail.service.ts
- *
- * Core function responsible for the actual email delivery via AWS SES.
- * Uses the SESClient from aws-ses.provider.ts.
- *
- * Returns the messageId assigned by the AWS server, which is used
- * for webhook tracking (DELIVERED, BOUNCED, OPENED).
- */
 export const sendEmail = async (options) => {
     const { to, subject, html, recipientName } = options;
-    // Use a verified email in AWS SES
-    const fromAddress = process.env.AWS_SES_FROM || "no-reply@yourdomain.com";
-    const client = getSESClient();
-    const command = new SendEmailCommand({
-        Destination: {
-            ToAddresses: [to],
-        },
-        Message: {
-            Body: {
-                Html: {
-                    Charset: "UTF-8",
-                    Data: html,
-                },
-            },
-            Subject: {
-                Charset: "UTF-8",
-                Data: subject,
-            },
-        },
-        Source: recipientName ? `${recipientName} <${fromAddress}>` : fromAddress,
-    });
+    const fromAddress = getSenderAddress();
+    const transporter = await getMailTransporter();
     try {
-        const info = await client.send(command);
-        logger.info("Email sent via AWS SES", { to, awsMessageId: info.MessageId });
-        return { awsMessageId: info.MessageId };
+        const info = await transporter.sendMail({
+            from: recipientName ? `${recipientName} <${fromAddress}>` : fromAddress,
+            to,
+            subject,
+            html,
+        });
+        const previewUrl = getTestMessageUrl(info);
+        if (previewUrl) {
+            logger.info("Ethereal preview URL", { to, url: previewUrl });
+        }
+        logger.info("Email sent via SMTP", { to, messageId: info.messageId });
+        return { messageId: info.messageId };
     }
     catch (error) {
-        logger.error("Failed to send email via AWS SES", { to, error: String(error) });
+        logger.error("Failed to send email via SMTP", { to, error: String(error) });
         throw error;
     }
 };

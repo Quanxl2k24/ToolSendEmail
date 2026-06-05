@@ -1,14 +1,15 @@
-/**
- * campaigns.service.ts
- *
- * Orchestrates the full "send campaign" pipeline:
- * 1. Parse file or Google Sheet -> raw contacts
- * 2. Validate & filter contacts (Zod)
- * 3. Create Campaign record (status: PROCESSING)
- * 4. Bulk insert MailLogs (status: QUEUED)
- * 5. Bulk push jobs to BullMQ
- * 6. Return campaignId immediately (async processing begins in background)
- */
+export declare const previewFile: (file: Express.Multer.File) => Promise<{
+    headers: string[];
+    rows: Record<string, string>[];
+    total: number;
+}>;
+export declare const previewSheet: (googleSheetUrl: string, accessToken: string) => Promise<{
+    sheetName: string;
+    sheetId: number;
+    headers: string[];
+    rows: Record<string, string>[];
+    total: number;
+}>;
 interface SendCampaignOptions {
     body: Record<string, any>;
     file?: Express.Multer.File;
@@ -29,13 +30,19 @@ export declare const cancelCampaign: (campaignId: string, userEmail: string) => 
     status: string;
 }>;
 /**
+ * Batch sync all mail log statuses to the Google Sheet.
+ */
+export declare const syncCampaignToSheet: (campaignId: string, userEmail: string, accessToken: string) => Promise<{
+    updated: number;
+}>;
+/**
  * Get all campaigns for the authenticated user.
  */
 export declare const getCampaigns: (userEmail: string) => Promise<{
-    status: import("@prisma/client").$Enums.CampaignStatus;
     name: string;
-    subject: string;
     id: string;
+    subject: string;
+    status: import("@prisma/client").$Enums.CampaignStatus;
     totalEmails: number;
     sentCount: number;
     failedCount: number;
@@ -45,15 +52,18 @@ export declare const getCampaigns: (userEmail: string) => Promise<{
  * Get a single campaign by ID (with ownership check).
  */
 export declare const getCampaign: (campaignId: string, userEmail: string) => Promise<{
-    status: import("@prisma/client").$Enums.CampaignStatus;
     name: string;
+    id: string;
     subject: string;
     htmlBody: string;
-    id: string;
+    status: import("@prisma/client").$Enums.CampaignStatus;
     totalEmails: number;
     sentCount: number;
     failedCount: number;
     createdBy: string;
+    googleSheetUrl: string | null;
+    sheetName: string | null;
+    sheetId: number | null;
     createdAt: Date;
     updatedAt: Date;
 }>;

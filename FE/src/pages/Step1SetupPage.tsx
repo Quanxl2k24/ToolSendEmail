@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { QuotaDonut } from '../components/quota/QuotaDonut';
 import { FileUploadZone } from '../components/upload/FileUploadZone';
 import { QUOTA } from '../constants';
+import { getQuota } from '../api/campaigns';
 
 interface Props {
   fileUploaded: boolean;
@@ -18,9 +20,17 @@ interface Props {
 }
 
 export function Step1SetupPage(props: Props) {
+  const [sentToday, setSentToday] = useState(0);
+
+  useEffect(() => {
+    getQuota()
+      .then((res) => setSentToday(res.data.sentToday))
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="grid grid-cols-2 gap-8 items-start max-lg:grid-cols-1">
-      <QuotaDonut dailyLimit={QUOTA.DAILY_LIMIT} sentToday={480} rateLimit={QUOTA.RATE_LIMIT} />
+      <QuotaDonut dailyLimit={QUOTA.DAILY_LIMIT} sentToday={sentToday} rateLimit={QUOTA.RATE_LIMIT} />
       <FileUploadZone
         fileUploaded={props.fileUploaded}
         fileName={props.fileName}

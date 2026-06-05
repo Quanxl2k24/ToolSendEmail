@@ -1,1 +1,1 @@
-{"version":3,"file":"quota.service.d.ts","sourceRoot":"","sources":["../../../src/modules/campaigns/quota.service.ts"],"names":[],"mappings":"AAKA;;;;GAIG;AACH,eAAO,MAAM,sBAAsB,GAAU,UAAU,MAAM,KAAG,OAAO,CAAC,IAAI,CAsB3E,CAAC"}
+{"version":3,"file":"quota.service.d.ts","sourceRoot":"","sources":["../../../src/modules/campaigns/quota.service.ts"],"names":[],"mappings":"AAMA,eAAO,MAAM,QAAQ,QAAa,OAAO,CAAC;IACxC,SAAS,EAAE,MAAM,CAAC;IAClB,UAAU,EAAE,MAAM,CAAC;IACnB,SAAS,EAAE,MAAM,CAAC;CACnB,CAUA,CAAC;AAEF,eAAO,MAAM,sBAAsB,GAAU,UAAU,MAAM,KAAG,OAAO,CAAC,IAAI,CAsB3E,CAAC"}

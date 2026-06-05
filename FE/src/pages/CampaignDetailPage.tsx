@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Inbox, RefreshCw, FileSpreadsheet, Play } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Mail, Inbox, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import { Card, CardTitle, Button, TableContainer, Table, Th, Tr, Td } from '../components/ui';
 import { getCampaign, getMailLogs, syncCampaignToSheet, updateUserToken } from '../api/campaigns';
 import { refreshTokenSilently } from '../api/auth';
@@ -11,7 +11,6 @@ import { cn } from '../lib/cn';
 interface Props {
   campaignId: string;
   onBack: () => void;
-  onContinue?: (id: string) => void;
 }
 
 const statusLabel: Record<string, string> = {
@@ -49,7 +48,7 @@ function formatDate(d: string | null): string {
   });
 }
 
-export function CampaignDetailPage({ campaignId, onBack, onContinue }: Props) {
+export function CampaignDetailPage({ campaignId, onBack }: Props) {
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [logs, setLogs] = useState<MailLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,11 +132,6 @@ export function CampaignDetailPage({ campaignId, onBack, onContinue }: Props) {
             <p className="text-xs text-graphite">{campaign.subject}</p>
           </div>
           <div className="flex items-center gap-3">
-            {campaign.googleSheetUrl && (
-              <Button variant="primary" className="!text-xs !py-1" onClick={() => onContinue?.(campaignId)}>
-                <Play size={12} fill="white" /> Tiếp tục
-              </Button>
-            )}
             <span className={`text-[10px] font-semibold px-3 py-1 rounded-full border shrink-0 ${statusBadge[campaign.status] ?? 'bg-mist text-graphite border-fog'}`}>
               {statusLabel[campaign.status] ?? campaign.status}
             </span>

@@ -23,17 +23,29 @@ export const parseGoogleSheet = async (url, accessToken) => {
     if (!spreadsheetId) {
         throw new Error("URL Google Sheets không hợp lệ.");
     }
+    let sheetName = "Sheet1";
+    let sheetIdNum = 0;
     // Method 1: Use the user's OAuth2 access token (preferred for private sheets)
     try {
         const oauth2Client = new google.auth.OAuth2();
         oauth2Client.setCredentials({ access_token: accessToken });
         const sheets = google.sheets({ version: "v4", auth: oauth2Client });
+        const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
         let range = "A1:ZZ10000";
         if (gid) {
-            const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
             const sheet = spreadsheet.data.sheets?.find((s) => s.properties?.sheetId?.toString() === gid);
             if (sheet?.properties?.title) {
-                range = `'${sheet.properties.title}'!A1:ZZ10000`;
+                sheetName = sheet.properties.title;
+                sheetIdNum = sheet.properties.sheetId ?? 0;
+                range = `'${sheetName}'!A1:ZZ10000`;
+            }
+        }
+        else {
+            const firstSheet = spreadsheet.data.sheets?.[0];
+            if (firstSheet?.properties?.title) {
+                sheetName = firstSheet.properties.title;
+                sheetIdNum = firstSheet.properties.sheetId ?? 0;
+                range = `'${sheetName}'!A1:ZZ10000`;
             }
         }
         const response = await sheets.spreadsheets.values.get({
@@ -42,17 +54,18 @@ export const parseGoogleSheet = async (url, accessToken) => {
         });
         const rows = response.data.values;
         if (!rows || rows.length === 0)
-            return [];
+            return { rows: [], sheetName, sheetId: sheetIdNum };
         const headers = rows[0];
         if (!headers)
-            return [];
-        return rows.slice(1).map((row) => {
+            return { rows: [], sheetName, sheetId: sheetIdNum };
+        const data = rows.slice(1).map((row) => {
             const item = {};
             headers.forEach((header, index) => {
                 item[header] = row[index] !== undefined ? row[index] : "";
             });
             return item;
         });
+        return { rows: data, sheetName, sheetId: sheetIdNum };
     }
     catch (apiError) {
         console.warn("Google Sheets API (OAuth2) failed, falling back to public export URL", apiError);
@@ -65,6 +78,7 @@ export const parseGoogleSheet = async (url, accessToken) => {
     }
     const csvText = await fetchResponse.text();
     const buffer = Buffer.from(csvText);
-    return parseCsv(buffer);
+    const rows = await parseCsv(buffer);
+    return { rows, sheetName, sheetId: sheetIdNum };
 };
 //# sourceMappingURL=googleSheets.util.js.map

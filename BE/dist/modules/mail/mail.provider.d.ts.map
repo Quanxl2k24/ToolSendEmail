@@ -1,1 +1,1 @@
-{"version":3,"file":"mail.provider.d.ts","sourceRoot":"","sources":["../../../src/modules/mail/mail.provider.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,YAAY,CAAC;AAgB9C,eAAO,MAAM,kBAAkB,QAAO,WAuBrC,CAAC"}
+{"version":3,"file":"mail.provider.d.ts","sourceRoot":"","sources":["../../../src/modules/mail/mail.provider.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,YAAY,CAAC;AA6C9C,eAAO,MAAM,kBAAkB,QAAa,OAAO,CAAC,WAAW,CAS9D,CAAC;AAYF,eAAO,MAAM,gBAAgB,QAAO,MAEnC,CAAC;AAEF,eAAO,MAAM,iBAAiB,GAAI,MAAM,GAAG,KAAG,MAAM,GAAG,IAItD,CAAC"}

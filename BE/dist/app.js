@@ -9,6 +9,7 @@ import { AppError } from "./core/exceptions/appError.js";
 // Modules
 import campaignsRouter from "./modules/campaigns/campaigns.controller.js";
 import webhooksRouter from "./modules/mail/webhooks.controller.js";
+import authRouter from "./modules/auth/auth.controller.js";
 // WebSockets
 import { initSocketGateway } from "./modules/websockets/events.gateway.js";
 // Queue Worker
@@ -26,6 +27,7 @@ initSocketGateway(server);
 // In production, run queue.worker.ts as a separate process/container.
 startEmailWorker();
 // ── Routes ─────────────────────────────────────────────────────────────────
+app.use("/api/auth", authRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/webhooks", webhooksRouter);
 // ── API Documentation ──────────────────────────────────────────────────────

@@ -44,7 +44,10 @@ export const listCampaigns = async (createdBy) => {
 export const bulkCreateMailLogs = async (logs) => {
     return prisma.mailLog.createMany({
         data: logs.map((log) => ({
-            ...log,
+            campaignId: log.campaignId,
+            recipientEmail: log.recipientEmail,
+            recipientName: log.recipientName ?? null,
+            rowIndex: log.rowIndex ?? null,
             status: "QUEUED",
         })),
         skipDuplicates: false,
@@ -65,7 +68,7 @@ export const getMailLogsByCampaign = async (campaignId) => {
 export const getMailLogsForQueue = async (campaignId) => {
     return prisma.mailLog.findMany({
         where: { campaignId, status: "QUEUED" },
-        select: { id: true, recipientEmail: true, recipientName: true },
+        select: { id: true, recipientEmail: true, recipientName: true, rowIndex: true },
     });
 };
 //# sourceMappingURL=campaigns.repository.js.map

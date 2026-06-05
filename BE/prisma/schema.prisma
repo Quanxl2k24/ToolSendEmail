@@ -85,7 +85,7 @@ model MailLog {
   recipientEmail String        @map("recipient_email")
   recipientName  String?       @map("recipient_name")
   status         MailLogStatus @default(QUEUED)
-  awsMessageId   String?       @map("aws_message_id") // ID từ AWS SES để tracking webhook
+  messageId      String?       @map("message_id") // ID từ SMTP server để tracking
   errorMessage   String?       @map("error_message") @db.Text
   rowIndex       Int?          @map("row_index") // Vị trí dòng trong Google Sheet (1-based)
   sentAt         DateTime?     @map("sent_at")
@@ -96,6 +96,6 @@ model MailLog {
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
-  @@index([awsMessageId])
+  @@index([messageId])
   @@map("mail_logs")
 }

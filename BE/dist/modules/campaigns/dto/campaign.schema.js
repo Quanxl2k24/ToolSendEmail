@@ -27,34 +27,43 @@ export const CreateCampaignSchema = z.object({
     htmlBody: z
         .string()
         .min(1, "Nội dung HTML không được để trống"),
-    // googleSheetUrl nếu có (thay thế cho file upload)
+    emailColumn: z
+        .string()
+        .min(1, "Vui lòng chọn cột chứa email")
+        .optional(),
     googleSheetUrl: z
         .string()
         .url("URL Google Sheet không hợp lệ")
+        .optional(),
+    sheetName: z
+        .string()
+        .optional(),
+    sheetId: z
+        .number()
         .optional(),
 });
 /**
  * Validates and filters an array of raw data rows.
  * Returns only the valid rows (with proper email fields) and a list of invalid ones.
  */
-export const validateAndFilterContacts = (rawData) => {
+export const validateAndFilterContacts = (rawData, emailColumn) => {
     const valid = [];
     let invalidCount = 0;
     for (const row of rawData) {
-        // Tiền xử lý: Chuyển các key thành lowercase và map về đúng 'email' và 'name'
         const normalizedRow = {};
         for (const key in row) {
             const lowerKey = key.trim().toLowerCase();
-            if (lowerKey === "email" || lowerKey === "thư điện tử" || lowerKey === "e-mail") {
-                normalizedRow.email = row[key];
+            const value = String(row[key] ?? "");
+            if (emailColumn && lowerKey === emailColumn.trim().toLowerCase()) {
+                normalizedRow.email = value;
+            }
+            else if (!emailColumn && (lowerKey === "email" || lowerKey === "thư điện tử" || lowerKey === "e-mail")) {
+                normalizedRow.email = value;
             }
             else if (lowerKey === "name" || lowerKey === "tên" || lowerKey === "họ tên" || lowerKey === "họ và tên") {
-                normalizedRow.name = row[key];
+                normalizedRow.name = value;
             }
-            else {
-                // Giữ lại các cột khác để có thể dùng làm biến động
-                normalizedRow[key] = row[key];
-            }
+            normalizedRow[key] = value;
         }
         const result = ContactSchema.safeParse(normalizedRow);
         if (result.success) {

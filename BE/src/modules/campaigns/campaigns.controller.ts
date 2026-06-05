@@ -11,9 +11,9 @@ import {
   previewSheet,
   previewFile,
   syncCampaignToSheet,
-  continueCampaign,
 } from "./campaigns.service.js";
 import { getMailLogsByCampaign } from "./campaigns.repository.js";
+import { getQuota } from "./quota.service.js";
 import { AppError } from "../../core/exceptions/appError.js";
 
 const router = Router();
@@ -177,6 +177,26 @@ router.post(
 
 /**
  * @openapi
+ * /api/campaigns/quota:
+ *   get:
+ *     summary: Get current daily email quota usage
+ *     tags: [Campaigns]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Quota info
+ */
+router.get(
+  "/quota",
+  asyncCatch(async (_req: Request, res: Response) => {
+    const quota = await getQuota();
+    res.status(200).json({ success: true, data: quota });
+  }),
+);
+
+/**
+ * @openapi
  * /api/campaigns/{id}/cancel:
  *   post:
  *     summary: Cancel an active campaign
@@ -226,34 +246,6 @@ router.post(
     const campaignId = String(req.params["id"]);
     const token = req.body?.accessToken ?? req.user!.accessToken;
     const result = await syncCampaignToSheet(campaignId, req.user!.email, token);
-    res.status(200).json({ success: true, ...result });
-  }),
-);
-
-/**
- * @openapi
- * /api/campaigns/{id}/continue:
- *   post:
- *     summary: Continue a campaign - send to new emails in the Google Sheet
- *     tags: [Campaigns]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Campaign continued with new emails
- */
-router.post(
-  "/:id/continue",
-  asyncCatch(async (req: Request, res: Response) => {
-    const campaignId = String(req.params["id"]);
-    const token = req.body?.accessToken ?? req.user!.accessToken;
-    const result = await continueCampaign(campaignId, req.user!.email, token);
     res.status(200).json({ success: true, ...result });
   }),
 );

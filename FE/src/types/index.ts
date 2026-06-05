@@ -73,7 +73,7 @@ export interface MailLog {
   recipientEmail: string;
   recipientName: string | null;
   status: MailLogStatus;
-  awsMessageId: string | null;
+  messageId: string | null;
   errorMessage: string | null;
   sentAt: string | null;
   createdAt: string;
@@ -117,4 +117,13 @@ export interface SheetPreviewResponse {
   total: number;
   sheetName?: string;
   sheetId?: number;
+}
+
+export interface QuotaResponse {
+  success: boolean;
+  data: {
+    sentToday: number;
+    dailyLimit: number;
+    rateLimit: number;
+  };
 }

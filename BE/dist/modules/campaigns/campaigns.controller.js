@@ -2,8 +2,9 @@ import { Router } from "express";
 import multer from "multer";
 import asyncCatch from "../../core/middlewares/asyncCatch.middleware.js";
 import { googleAuthMiddleware } from "../../core/middlewares/auth.middleware.js";
-import { sendCampaign, cancelCampaign, getCampaigns, getCampaign, } from "./campaigns.service.js";
+import { sendCampaign, cancelCampaign, getCampaigns, getCampaign, previewSheet, previewFile, syncCampaignToSheet, } from "./campaigns.service.js";
 import { getMailLogsByCampaign } from "./campaigns.repository.js";
+import { getQuota } from "./quota.service.js";
 import { AppError } from "../../core/exceptions/appError.js";
 const router = Router();
 // Multer: in-memory storage for uploaded files (max 10MB)
@@ -89,6 +90,79 @@ router.post("/send", upload.single("file"), asyncCatch(async (req, res) => {
 }));
 /**
  * @openapi
+ * /api/campaigns/preview-sheet:
+ *   post:
+ *     summary: Preview Google Sheet data (first 10 rows)
+ *     tags: [Campaigns]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [googleSheetUrl]
+ *             properties:
+ *               googleSheetUrl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Preview data
+ */
+/**
+ * @openapi
+ * /api/campaigns/preview-file:
+ *   post:
+ *     summary: Preview uploaded file data (first 10 rows)
+ *     tags: [Campaigns]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Preview data
+ */
+router.post("/preview-file", upload.single("file"), asyncCatch(async (req, res) => {
+    if (!req.file)
+        throw new AppError("Vui lòng upload file.", 400);
+    const result = await previewFile(req.file);
+    res.status(200).json({ success: true, ...result });
+}));
+router.post("/preview-sheet", asyncCatch(async (req, res) => {
+    const { googleSheetUrl } = req.body;
+    if (!googleSheetUrl)
+        throw new AppError("googleSheetUrl là bắt buộc.", 400);
+    const result = await previewSheet(googleSheetUrl, req.user.accessToken);
+    res.status(200).json({ success: true, ...result });
+}));
+/**
+ * @openapi
+ * /api/campaigns/quota:
+ *   get:
+ *     summary: Get current daily email quota usage
+ *     tags: [Campaigns]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Quota info
+ */
+router.get("/quota", asyncCatch(async (_req, res) => {
+    const quota = await getQuota();
+    res.status(200).json({ success: true, data: quota });
+}));
+/**
+ * @openapi
  * /api/campaigns/{id}/cancel:
  *   post:
  *     summary: Cancel an active campaign
@@ -108,6 +182,30 @@ router.post("/send", upload.single("file"), asyncCatch(async (req, res) => {
 router.post("/:id/cancel", asyncCatch(async (req, res) => {
     const id = String(req.params["id"]);
     const result = await cancelCampaign(id, req.user.email);
+    res.status(200).json({ success: true, ...result });
+}));
+/**
+ * @openapi
+ * /api/campaigns/{id}/sync-sheet:
+ *   post:
+ *     summary: Sync all mail log statuses to the Google Sheet
+ *     tags: [Campaigns]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Sheet synced successfully
+ */
+router.post("/:id/sync-sheet", asyncCatch(async (req, res) => {
+    const campaignId = String(req.params["id"]);
+    const token = req.body?.accessToken ?? req.user.accessToken;
+    const result = await syncCampaignToSheet(campaignId, req.user.email, token);
     res.status(200).json({ success: true, ...result });
 }));
 /**

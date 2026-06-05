@@ -10,6 +10,12 @@ export interface EmailJobData {
     subject: string;
     html: string;
     recipientName?: string;
+    sheetUpdateInfo?: {
+        spreadsheetId: string;
+        sheetName: string;
+        rowIndex: number;
+        userEmail: string;
+    };
 }
 /**
  * Returns the singleton BullMQ Queue instance.

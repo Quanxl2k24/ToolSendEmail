@@ -5,12 +5,13 @@ import asyncCatch from "../../core/middlewares/asyncCatch.middleware.js";
 /**
  * webhooks.controller.ts
  *
- * Receives callback events from ESP (SendGrid, Resend, etc.) and updates
- * the MailLog status accordingly.
+ * GHI CHÚ: Gmail SMTP KHÔNG hỗ trợ webhook delivery/bounce/open tracking.
+ * Nếu sau này chuyển sang ESP có webhook (SendGrid, Resend, AWS SES...),
+ * hãy kích hoạt lại route này và cập nhật format payload tương ứng.
  *
- * Configure your ESP to POST events to: POST /api/webhooks/mail-status
- *
- * The webhook payload format below is generic. Adapt to match your ESP's format.
+ * Cấu trúc payload mẫu (cần adapt theo ESP cụ thể):
+ *   POST /api/webhooks/mail-status
+ *   Body: [{ messageId: "...", event: "delivered" | "bounce" | "open" }]
  */
 const router = Router();
 /**
@@ -18,42 +19,16 @@ const router = Router();
  * /api/webhooks/mail-status:
  *   post:
  *     summary: Receive email status callbacks from ESP
- *     description: Called by SendGrid/Resend/etc. to report delivery, bounce, or open events.
+ *     description: (HIỆN ĐANG TẮT) Gmail SMTP không hỗ trợ webhook.
  *     tags:
  *       - Webhooks
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: array
- *             items:
- *               type: object
  *     responses:
  *       200:
- *         description: Events processed successfully
+ *         description: Webhook endpoint is disabled
  */
 router.post("/mail-status", asyncCatch(async (req, res) => {
-    const events = Array.isArray(req.body)
-        ? req.body
-        : [req.body];
-    for (const event of events) {
-        if (!event.messageId)
-            continue;
-        const statusMap = {
-            delivered: "DELIVERED",
-            bounce: "BOUNCED",
-            open: "OPENED",
-        };
-        const newStatus = statusMap[event.event];
-        if (!newStatus)
-            continue;
-        await prisma.mailLog.updateMany({
-            where: { awsMessageId: event.messageId },
-            data: { status: newStatus },
-        });
-        logger.info("Webhook processed", { messageId: event.messageId, event: event.event });
-    }
-    res.status(200).json({ success: true, processed: events.length });
+    logger.warn("Webhook endpoint hit but is disabled (Gmail SMTP doesn't support webhooks)");
+    res.status(200).json({ success: true, processed: 0, message: "Webhooks disabled - using Gmail SMTP" });
 }));
 export default router;
 //# sourceMappingURL=webhooks.controller.js.map

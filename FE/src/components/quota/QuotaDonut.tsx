@@ -14,15 +14,15 @@ interface Props {
 export function QuotaDonut({ dailyLimit, sentToday, rateLimit }: Props) {
   const ratio = dailyLimit > 0 ? Math.min(sentToday / dailyLimit, 1) : 0;
   const offset = CIRCUMFERENCE * (1 - ratio);
+  const isOverQuota = sentToday > dailyLimit;
 
-  // Completely achromatic progress colors
-  const strokeColorClass = 'stroke-midnight-ink';
-  const textColorClass = 'text-midnight-ink';
+  const strokeColorClass = isOverQuota ? 'stroke-amber-500' : 'stroke-midnight-ink';
+  const textColorClass = isOverQuota ? 'text-amber-600' : 'text-midnight-ink';
 
   return (
     <Card>
-      <CardTitle><Settings size={20} /> AWS SES Daily Quota</CardTitle>
-      <CardDesc>Hạn ngạch và tốc độ AWS SES được cập nhật theo thời gian thực.</CardDesc>
+      <CardTitle><Settings size={20} /> SMTP Daily Quota</CardTitle>
+      <CardDesc>Hạn ngạch và tốc độ gửi mail trong ngày.</CardDesc>
       <div className="flex items-center justify-around gap-5 flex-wrap my-5">
         <div className="relative w-[160px] h-[160px] shrink-0">
           <svg viewBox="0 0 160 160" className="w-[160px] h-[160px]">
@@ -41,7 +41,9 @@ export function QuotaDonut({ dailyLimit, sentToday, rateLimit }: Props) {
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className={`text-[28px] font-[652] ${textColorClass}`}>{Math.floor(ratio * 100)}%</div>
+              <div className={`text-[28px] font-[652] ${textColorClass}`}>
+                {isOverQuota ? '⚠' : `${Math.floor(ratio * 100)}%`}
+              </div>
               <div className="text-[11px] text-graphite mt-0.5 uppercase font-semibold">Đã dùng</div>
             </div>
           </div>
@@ -57,12 +59,19 @@ export function QuotaDonut({ dailyLimit, sentToday, rateLimit }: Props) {
           </div>
           <div className="flex justify-between pb-2 border-b border-mist text-sm">
             <span className="text-graphite">Có thể gửi thêm:</span>
-            <span className="font-semibold text-midnight-ink">{Math.max(0, dailyLimit - sentToday)} email</span>
+            <span className={`font-semibold ${isOverQuota ? 'text-amber-600' : 'text-midnight-ink'}`}>
+              {Math.max(0, dailyLimit - sentToday)} email
+            </span>
           </div>
           <div className="flex justify-between pb-2 border-b border-mist text-sm">
-            <span className="text-graphite">Tốc độ AWS SES:</span>
-            <span className="font-semibold text-midnight-ink">{rateLimit} mails/sec</span>
+            <span className="text-graphite">Tốc độ gửi:</span>
+            <span className="font-semibold text-midnight-ink">{rateLimit} mail/sec</span>
           </div>
+          {isOverQuota && (
+            <div className="mt-1 text-xs text-amber-600 font-medium">
+              Đã vượt hạn mức trong ngày. Email vẫn được gửi nhưng có thể bị chậm.
+            </div>
+          )}
         </div>
       </div>
     </Card>

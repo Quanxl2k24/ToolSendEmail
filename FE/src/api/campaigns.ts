@@ -5,6 +5,7 @@ import type {
   SendCampaignResponse,
   MailLogsResponse,
   SheetPreviewResponse,
+  QuotaResponse,
 } from '../types';
 
 export interface SendCampaignPayload {
@@ -72,8 +73,6 @@ export async function syncCampaignToSheet(campaignId: string) {
   return api.post<{ success: boolean; updated: number }>(`/campaigns/${campaignId}/sync-sheet`);
 }
 
-export async function continueCampaign(campaignId: string) {
-  return api.post<{ success: boolean; campaignId: string; newQueued: number; alreadySent: number }>(
-    `/campaigns/${campaignId}/continue`,
-  );
+export async function getQuota() {
+  return api.get<QuotaResponse>('/campaigns/quota');
 }

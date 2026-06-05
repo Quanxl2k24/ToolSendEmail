@@ -51,26 +51,26 @@ export const startEmailWorker = (): void => {
       };
       if (recipientName !== undefined) sendOptions.recipientName = recipientName;
 
-      const { awsMessageId } = await sendEmail(sendOptions);
+      const { messageId } = await sendEmail(sendOptions);
 
       // ── Step 3: Update MailLog as SENT ────────────────────────────────────
       await prisma.mailLog.update({
         where: { id: logId },
         data: {
           status: "SENT",
-          awsMessageId,
+          messageId,
           sentAt: new Date(),
         },
       });
 
-      logger.info(`Email sent`, { logId, to, awsMessageId });
+      logger.info(`Email sent`, { logId, to, messageId });
     },
     {
       connection: getRedisConnection(),
-      concurrency: 5, // Xử lý 5 job song song cùng lúc
+      concurrency: 1, // Chỉ 1 job tại 1 thời điểm (tránh Gmail 429)
       limiter: {
-        max: 14,       // Tối đa 14 jobs (AWS SES)
-        duration: 1000, // mỗi 1000ms (1 giây)
+        max: Number(process.env.SMTP_RATE_LIMIT ?? 15),
+        duration: 60000, // 15 email mỗi phút
       },
     },
   );

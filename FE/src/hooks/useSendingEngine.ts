@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { LogEntry } from '../types';
-import { sendCampaign, cancelCampaign, syncCampaignToSheet, continueCampaign } from '../api/campaigns';
+import { sendCampaign, cancelCampaign, syncCampaignToSheet } from '../api/campaigns';
 import { connectSocket, disconnectSocket, joinCampaign, onProgressUpdate } from '../api/socket';
 import { ApiError, getToken } from '../api/client';
 import { refreshTokenSilently } from '../api/auth';
@@ -29,62 +29,6 @@ export function useSendingEngine() {
       cleanupRef.current?.();
       disconnectSocket();
     };
-  }, []);
-
-  const resumeCampaign = useCallback(async (campaignId: string) => {
-    setIsSending(true);
-    setError(null);
-    setProgress(0);
-    setCampaignId(campaignId);
-    setLogs([
-      { id: Date.now(), text: `[${new Date().toLocaleTimeString()} INFO] Tiếp tục chiến dịch #${campaignId.slice(0, 8)}...`, type: 'info' },
-    ]);
-
-    try {
-      const token = getToken();
-      if (!token) throw new Error('Token xác thực không hợp lệ.');
-
-      const result = await continueCampaign(campaignId);
-
-      setTotalCount(prev => prev + result.newQueued);
-      setLogs(prev => [...prev,
-        { id: Date.now() + 1, text: `[${new Date().toLocaleTimeString()} INFO] Đã tìm thấy ${result.newQueued} email mới, ${result.alreadySent} email đã gửi trước đó.`, type: 'info' },
-      ]);
-
-      if (result.newQueued === 0) {
-        setIsSending(false);
-        return;
-      }
-
-      connectSocket(token);
-      joinCampaign(campaignId);
-
-      cleanupRef.current = onProgressUpdate((update) => {
-        setSuccessCount(update.sent);
-        setFailedCount(update.failed);
-        if (update.total > 0) setTotalCount(update.total);
-        setProgress(update.total > 0 ? Math.floor((update.sent / update.total) * 100) : 0);
-
-        if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(update.status)) {
-          setIsSending(false);
-          const msg = update.status === 'COMPLETED'
-            ? `[CONGRATS] Chiến dịch hoàn tất! ${update.sent} email gửi thành công.`
-            : update.status === 'CANCELLED'
-              ? `[CANCELLED] Chiến dịch đã bị hủy.`
-              : `[FAILED] Chiến dịch thất bại. Đã gửi ${update.sent}/${update.total}.`;
-          setLogs(prev => [...prev, { id: Date.now(), text: msg, type: update.status === 'COMPLETED' ? 'success' : 'failed' }]);
-          syncToSheet(campaignId);
-          cleanupRef.current?.();
-          cleanupRef.current = null;
-          disconnectSocket();
-        }
-      });
-    } catch (err: unknown) {
-      setIsSending(false);
-      const msg = err instanceof ApiError ? err.message : 'Không thể tiếp tục chiến dịch.';
-      setError(msg);
-      setLogs(prev => [...prev, { id: Date.now(), text: `[ERROR] ${msg}`, type: 'failed' }]);
-    }
   }, []);
 
   const startSending = useCallback(async (data: CampaignSendData) => {
@@ -204,6 +148,6 @@ export function useSendingEngine() {
 
   return {
     progress, isSending, logs, successCount, failedCount, totalCount, error, campaignId,
-    startSending, stopSending, resetSending, resumeCampaign,
+    startSending, stopSending, resetSending,
   } as const;
 }

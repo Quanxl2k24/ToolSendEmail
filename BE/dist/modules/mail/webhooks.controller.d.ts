@@ -1,12 +1,13 @@
 /**
  * webhooks.controller.ts
  *
- * Receives callback events from ESP (SendGrid, Resend, etc.) and updates
- * the MailLog status accordingly.
+ * GHI CHÚ: Gmail SMTP KHÔNG hỗ trợ webhook delivery/bounce/open tracking.
+ * Nếu sau này chuyển sang ESP có webhook (SendGrid, Resend, AWS SES...),
+ * hãy kích hoạt lại route này và cập nhật format payload tương ứng.
  *
- * Configure your ESP to POST events to: POST /api/webhooks/mail-status
- *
- * The webhook payload format below is generic. Adapt to match your ESP's format.
+ * Cấu trúc payload mẫu (cần adapt theo ESP cụ thể):
+ *   POST /api/webhooks/mail-status
+ *   Body: [{ messageId: "...", event: "delivered" | "bounce" | "open" }]
  */
 declare const router: import("express-serve-static-core").Router;
 export default router;

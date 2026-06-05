@@ -34,10 +34,10 @@ export const getEmailQueue = (): Queue<EmailJobData> => {
   emailQueue = new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
     connection: getRedisConnection(),
     defaultJobOptions: {
-      attempts: 3,
+      attempts: 5,
       backoff: {
         type: "exponential",
-        delay: 2000, // 2s -> 4s -> 8s
+        delay: 5000, // 5s -> 10s -> 20s -> 40s -> 80s
       },
       removeOnComplete: { count: 100 }, // Giữ lại 100 job gần nhất để debug
       removeOnFail: { count: 500 },

@@ -58,9 +58,8 @@ export function useRecipients() {
     }
   }, []);
 
-  const handleConnectGoogleSheet = useCallback(async (url?: string) => {
-    const sheetUrl = url ?? googleSheetLink;
-    if (!sheetUrl.startsWith(GOOGLE_SHEET_PREFIX)) {
+  const handleConnectGoogleSheet = useCallback(async () => {
+    if (!googleSheetLink.startsWith(GOOGLE_SHEET_PREFIX)) {
       setError('Vui lòng nhập link Google Sheet hợp lệ!');
       return;
     }
@@ -69,7 +68,7 @@ export function useRecipients() {
     setSheetPreview(null);
     setUploadedFile(null);
     try {
-      const result = await previewSheet(sheetUrl);
+      const result = await previewSheet(googleSheetLink);
       setSheetPreview({ headers: result.headers, rows: result.rows, total: result.total });
       setFileName('Google Sheet: ' + googleSheetLink);
       setFileUploaded(true);

@@ -42,41 +42,80 @@ export const startEmailWorker = () => {
         };
         if (recipientName !== undefined)
             sendOptions.recipientName = recipientName;
-        const { awsMessageId } = await sendEmail(sendOptions);
+        const { messageId } = await sendEmail(sendOptions);
         // ── Step 3: Update MailLog as SENT ────────────────────────────────────
         await prisma.mailLog.update({
             where: { id: logId },
             data: {
                 status: "SENT",
-                awsMessageId,
+                messageId,
                 sentAt: new Date(),
             },
         });
-        logger.info(`Email sent`, { logId, to, awsMessageId });
+        logger.info(`Email sent`, { logId, to, messageId });
     }, {
         connection: getRedisConnection(),
         concurrency: 5, // Xử lý 5 job song song cùng lúc
         limiter: {
-            max: 14, // Tối đa 14 jobs (AWS SES)
-            duration: 1000, // mỗi 1000ms (1 giây)
+            max: Number(process.env.SMTP_RATE_LIMIT ?? 1), // Email tối đa mỗi giây
+            duration: 1000,
         },
     });
     // ── Event: Job completed ────────────────────────────────────────────────
     worker.on("completed", async (job) => {
-        const { campaignId } = job.data;
+        const { logId, campaignId } = job.data;
         try {
-            // Tăng sent_count trong Campaign
+            // Kiểm tra nếu mail bị hủy (campaign cancelled)
+            const mailLog = await prisma.mailLog.findUnique({
+                where: { id: logId },
+                select: { status: true },
+            });
+            if (mailLog?.status === "CANCELLED") {
+                // Không tăng sentCount, chỉ kiểm tra hoàn tất
+                const [campaign, cancelledCount] = await Promise.all([
+                    prisma.campaign.findUnique({
+                        where: { id: campaignId },
+                        select: { sentCount: true, failedCount: true, totalEmails: true, status: true },
+                    }),
+                    prisma.mailLog.count({
+                        where: { campaignId, status: "CANCELLED" },
+                    }),
+                ]);
+                if (campaign && campaign.status === "PROCESSING") {
+                    const totalProcessed = campaign.sentCount + campaign.failedCount + cancelledCount;
+                    if (totalProcessed >= campaign.totalEmails) {
+                        const newStatus = campaign.sentCount > 0 ? "COMPLETED" : "FAILED";
+                        await prisma.campaign.update({
+                            where: { id: campaignId },
+                            data: { status: newStatus },
+                        });
+                        emitProgressUpdate(campaignId, {
+                            sent: campaign.sentCount,
+                            failed: campaign.failedCount,
+                            total: campaign.totalEmails,
+                            status: newStatus,
+                        });
+                    }
+                }
+                return;
+            }
+            // Tăng sent_count trong Campaign (mail gửi thành công)
             const updated = await prisma.campaign.update({
                 where: { id: campaignId },
                 data: { sentCount: { increment: 1 } },
                 select: { sentCount: true, failedCount: true, totalEmails: true, status: true },
             });
-            // Kiểm tra xem chiến dịch đã hoàn thành chưa
-            const isDone = updated.sentCount + updated.failedCount >= updated.totalEmails;
+            // Đếm số mail bị hủy để tính điều kiện hoàn tất
+            const cancelledCount = await prisma.mailLog.count({
+                where: { campaignId, status: "CANCELLED" },
+            });
+            const totalProcessed = updated.sentCount + updated.failedCount + cancelledCount;
+            const isDone = totalProcessed >= updated.totalEmails;
             if (isDone && updated.status === "PROCESSING") {
+                const newStatus = updated.sentCount > 0 ? "COMPLETED" : "FAILED";
                 await prisma.campaign.update({
                     where: { id: campaignId },
-                    data: { status: "COMPLETED" },
+                    data: { status: newStatus },
                 });
             }
             // Bắn realtime progress lên client
@@ -84,17 +123,27 @@ export const startEmailWorker = () => {
                 sent: updated.sentCount,
                 failed: updated.failedCount,
                 total: updated.totalEmails,
-                status: isDone ? "COMPLETED" : "PROCESSING",
+                status: isDone ? (updated.sentCount > 0 ? "COMPLETED" : "FAILED") : "PROCESSING",
             });
         }
         catch (err) {
             logger.error("Failed to update campaign after job completion", { campaignId, err: String(err) });
         }
     });
-    // ── Event: Job failed (after all retries exhausted) ─────────────────────
+    // ── Event: Job failed (permanently, after all retries exhausted) ────────
     worker.on("failed", async (job, err) => {
         if (!job)
             return;
+        // Chỉ xử lý khi hết retry, bỏ qua các lần thất bại tạm thời
+        const isPermanent = job.attemptsMade >= (job.opts.attempts ?? 1);
+        if (!isPermanent) {
+            logger.warn("Email job failed, will retry", {
+                logId: job.data.logId,
+                campaignId: job.data.campaignId,
+                attempt: job.attemptsMade,
+            });
+            return;
+        }
         const { logId, campaignId } = job.data;
         try {
             await prisma.mailLog.update({
@@ -106,18 +155,23 @@ export const startEmailWorker = () => {
                 data: { failedCount: { increment: 1 } },
                 select: { sentCount: true, failedCount: true, totalEmails: true, status: true },
             });
-            const isDone = updated.sentCount + updated.failedCount >= updated.totalEmails;
+            const cancelledCount = await prisma.mailLog.count({
+                where: { campaignId, status: "CANCELLED" },
+            });
+            const totalProcessed = updated.sentCount + updated.failedCount + cancelledCount;
+            const isDone = totalProcessed >= updated.totalEmails;
             if (isDone && updated.status === "PROCESSING") {
+                const newStatus = updated.sentCount > 0 ? "COMPLETED" : "FAILED";
                 await prisma.campaign.update({
                     where: { id: campaignId },
-                    data: { status: "COMPLETED" },
+                    data: { status: newStatus },
                 });
             }
             emitProgressUpdate(campaignId, {
                 sent: updated.sentCount,
                 failed: updated.failedCount,
                 total: updated.totalEmails,
-                status: isDone ? "COMPLETED" : "PROCESSING",
+                status: isDone ? (updated.sentCount > 0 ? "COMPLETED" : "FAILED") : "PROCESSING",
             });
             logger.error("Email job failed permanently", { logId, campaignId, error: err.message });
         }

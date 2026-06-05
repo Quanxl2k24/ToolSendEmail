@@ -16,7 +16,6 @@ import { Step3ValidationPage } from './pages/Step3ValidationPage';
 import { Step4SendPage } from './pages/Step4SendPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CampaignDetailPage } from './pages/CampaignDetailPage';
-import { getCampaign } from './api/campaigns';
 
 type Page = 'dashboard' | 'wizard' | 'detail';
 
@@ -28,7 +27,6 @@ export default function App() {
 
   const [page, setPage] = useState<Page>('dashboard');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const [resumeCampaignId, setResumeCampaignId] = useState<string | null>(null);
 
   const handleSignOut = useCallback(() => {
     signOut();
@@ -39,28 +37,12 @@ export default function App() {
 
   const goToDashboard = useCallback(() => setPage('dashboard'), []);
 
-  const goToWizard = useCallback((resumeId?: string) => {
-    if (!resumeId) {
-      campaign.reset();
-      recipients.resetRecipients();
-      engine.resetSending();
-    }
-    setResumeCampaignId(resumeId ?? null);
+  const goToWizard = useCallback(() => {
+    campaign.reset();
+    recipients.resetRecipients();
+    engine.resetSending();
     setPage('wizard');
   }, [campaign, recipients, engine]);
-
-  const handleContinue = useCallback(async (campaignId: string) => {
-    const res = await getCampaign(campaignId);
-    const data = res.data;
-    campaign.setName(data.name);
-    campaign.setSubject(data.subject);
-    campaign.setHtmlBody(data.htmlBody);
-    recipients.setGoogleSheetLink(data.googleSheetUrl ?? '');
-    goToWizard(campaignId);
-    if (data.googleSheetUrl) {
-      await recipients.handleConnectGoogleSheet(data.googleSheetUrl);
-    }
-  }, [campaign, recipients, goToWizard]);
 
   const goToDetail = useCallback((id: string) => {
     setSelectedCampaignId(id);
@@ -88,20 +70,16 @@ export default function App() {
   }, [campaign, recipients.fileUploaded]);
 
   const handleStartSending = useCallback(() => {
-    if (resumeCampaignId) {
-      engine.resumeCampaign(resumeCampaignId);
-    } else {
-      const data: CampaignSendData = {
-        name: campaign.name,
-        subject: campaign.subject,
-        htmlBody: campaign.htmlBody,
-        file: recipients.uploadedFile,
-        googleSheetUrl: recipients.googleSheetLink,
-        emailColumn: recipients.emailColumn,
-      };
-      engine.startSending(data);
-    }
-  }, [campaign, recipients, engine, resumeCampaignId]);
+    const data: CampaignSendData = {
+      name: campaign.name,
+      subject: campaign.subject,
+      htmlBody: campaign.htmlBody,
+      file: recipients.uploadedFile,
+      googleSheetUrl: recipients.googleSheetLink,
+      emailColumn: recipients.emailColumn,
+    };
+    engine.startSending(data);
+  }, [campaign, recipients, engine]);
 
   const handleWizardReset = useCallback(() => {
     campaign.goTo(1);
@@ -126,7 +104,7 @@ export default function App() {
         )}
 
         {page === 'detail' && selectedCampaignId && (
-          <CampaignDetailPage campaignId={selectedCampaignId} onBack={goToDashboard} onContinue={handleContinue} />
+          <CampaignDetailPage campaignId={selectedCampaignId} onBack={goToDashboard} />
         )}
 
         {page === 'wizard' && (

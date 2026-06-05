@@ -15,14 +15,17 @@ export declare const CreateCampaignSchema: z.ZodObject<{
     name: z.ZodString;
     subject: z.ZodString;
     htmlBody: z.ZodString;
+    emailColumn: z.ZodOptional<z.ZodString>;
     googleSheetUrl: z.ZodOptional<z.ZodString>;
+    sheetName: z.ZodOptional<z.ZodString>;
+    sheetId: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type CreateCampaignDto = z.infer<typeof CreateCampaignSchema>;
 /**
  * Validates and filters an array of raw data rows.
  * Returns only the valid rows (with proper email fields) and a list of invalid ones.
  */
-export declare const validateAndFilterContacts: (rawData: any[]) => {
+export declare const validateAndFilterContacts: (rawData: any[], emailColumn?: string) => {
     valid: ContactDto[];
     invalidCount: number;
 };
