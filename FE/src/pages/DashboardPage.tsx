@@ -7,7 +7,7 @@ import { cn } from "../lib/cn";
 
 interface Props {
   onNewCampaign: () => void;
-  onViewDetail: (id: string) => void;
+  onViewDetail: (id: string, status?: CampaignStatus) => void;
 }
 
 const statusLabel: Record<CampaignStatus, string> = {
@@ -65,6 +65,7 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
   const failed = campaigns.filter(
     (c) => c.status === "FAILED" || c.status === "CANCELLED",
   ).length;
+  const scheduled = campaigns.filter((c) => c.type === "SCHEDULED").length;
 
   const filteredCampaigns = campaigns.filter((c) => {
     const matchesStatus = statusFilter === "ALL" || c.status === statusFilter;
@@ -81,8 +82,8 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
         {[
           { label: "Tổng chiến dịch", value: total },
           { label: "Đang chạy / Chờ", value: active },
+          { label: "Dài ngày", value: scheduled },
           { label: "Hoàn tất", value: completed },
-          { label: "Thất bại / Đã hủy", value: failed },
         ].map(({ label, value }) => (
           <div
             key={label}
@@ -240,9 +241,16 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col pr-4 min-w-0">
-                          <span className="font-[440] text-sm text-midnight-ink truncate">
-                            {c.name}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-[440] text-sm text-midnight-ink truncate">
+                              {c.name}
+                            </span>
+                            {c.type === 'SCHEDULED' && (
+                              <span className="text-[10px] font-[500] px-2 py-0.5 rounded-full bg-mist text-graphite border border-fog shrink-0">
+                                Dài ngày
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs text-graphite mt-0.5 truncate max-w-[280px]">
                             {c.subject}
                           </span>
@@ -295,11 +303,11 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onViewDetail(c.id);
+                            onViewDetail(c.id, c.status);
                           }}
                           className="px-3.5 py-1.5 rounded-full text-[11px] font-[500] border border-midnight-ink bg-transparent text-midnight-ink hover:bg-midnight-ink hover:text-white cursor-pointer transition-all duration-200"
                         >
-                          Xem báo cáo
+                          {c.status === "PROCESSING" ? "Xem chi tiết" : "Xem báo cáo"}
                         </button>
                       </td>
                     </tr>

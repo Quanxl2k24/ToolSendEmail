@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { LogEntry } from '../types';
-import { sendCampaign, cancelCampaign, syncCampaignToSheet } from '../api/campaigns';
+import { sendCampaign, cancelCampaign, syncCampaignToSheet, getCampaign } from '../api/campaigns';
 import { connectSocket, disconnectSocket, joinCampaign, onProgressUpdate } from '../api/socket';
 import { ApiError, getToken } from '../api/client';
 import { refreshJwt } from '../api/auth';
@@ -11,6 +11,9 @@ export interface CampaignSendData {
   file: File | null;
   googleSheetUrl: string;
   emailColumn?: string;
+  type?: 'ONE_SHOT' | 'SCHEDULED';
+  startTime?: string;
+  endTime?: string;
 }
 
 export function useSendingEngine() {
@@ -69,11 +72,27 @@ export function useSendingEngine() {
         file: data.file ?? undefined,
         googleSheetUrl: data.googleSheetUrl || undefined,
         emailColumn: data.emailColumn || undefined,
+        type: data.type,
+        startTime: data.startTime,
+        endTime: data.endTime,
       });
 
       const cId = result.campaignId;
       setCampaignId(cId);
-      setTotalCount(result.totalQueued);
+
+      if (result.type === 'SCHEDULED') {
+        setTotalCount(result.totalRows ?? 0);
+        setIsSending(false);
+        setLogs(prev => [...prev,
+          { id: Date.now() + 1, text: `[${new Date().toLocaleTimeString()} INFO] Chiến dịch dài ngày #${cId.slice(0, 8)} đã được tạo.`, type: 'info' },
+          { id: Date.now() + 2, text: `[${new Date().toLocaleTimeString()} INFO] ⏰ Bắt đầu: ${result.startTime ? new Date(result.startTime).toLocaleString('vi-VN') : 'N/A'}`, type: 'info' },
+          { id: Date.now() + 3, text: `[${new Date().toLocaleTimeString()} INFO] ⏰ Kết thúc: ${result.endTime ? new Date(result.endTime).toLocaleString('vi-VN') : 'N/A'}`, type: 'info' },
+          { id: Date.now() + 4, text: `[${new Date().toLocaleTimeString()} INFO] 📋 Hệ thống sẽ tự động quét sheet và gửi mail mỗi 5 phút.`, type: 'info' },
+        ]);
+        return;
+      }
+
+      setTotalCount(result.totalQueued ?? 0);
       setLogs(prev => [...prev,
         { id: Date.now() + 1, text: `[${new Date().toLocaleTimeString()} INFO] Chiến dịch #${cId.slice(0, 8)} được tạo. Xếp hàng ${result.totalQueued} email, bỏ qua ${result.invalidSkipped} email lỗi.`, type: 'info' },
       ]);
@@ -117,6 +136,59 @@ export function useSendingEngine() {
     }
   }, [syncToSheet]);
 
+  const monitorCampaign = useCallback(async (campaignId: string) => {
+    setError(null);
+    setLogs([{ id: Date.now(), text: `[${new Date().toLocaleTimeString()} INFO] Đang theo dõi chiến dịch...`, type: 'info' }]);
+    setIsSending(true);
+
+    try {
+      const result = await getCampaign(campaignId);
+      const c = result.data;
+      setCampaignId(campaignId);
+      setTotalCount(c.totalEmails);
+      setSuccessCount(c.sentCount);
+      setFailedCount(c.failedCount);
+      setProgress(c.totalEmails > 0 ? Math.floor(((c.sentCount + c.failedCount) / c.totalEmails) * 100) : 0);
+
+      const token = getToken();
+      if (token) {
+        connectSocket(token);
+        joinCampaign(campaignId);
+      }
+
+      cleanupRef.current = onProgressUpdate((update) => {
+        setSuccessCount(update.sent);
+        setFailedCount(update.failed);
+        if (update.total > 0) setTotalCount(update.total);
+        setProgress(update.total > 0 ? Math.floor(((update.sent + update.failed) / update.total) * 100) : 0);
+
+        if (update.status === 'COMPLETED' || update.status === 'FAILED') {
+          setIsSending(false);
+          const msg = update.status === 'COMPLETED'
+            ? `[CONGRATS] Chiến dịch hoàn tất! ${update.sent} email gửi thành công.`
+            : `[FAILED] Chiến dịch thất bại. Đã gửi ${update.sent}/${update.total}.`;
+          setLogs(prev => [...prev, { id: Date.now(), text: msg, type: update.status === 'COMPLETED' ? 'success' : 'failed' }]);
+          syncToSheet(campaignId);
+          cleanupRef.current?.();
+          cleanupRef.current = null;
+          disconnectSocket();
+        } else if (update.status === 'CANCELLED') {
+          setIsSending(false);
+          setLogs(prev => [...prev, { id: Date.now(), text: `[CANCELLED] Chiến dịch đã bị hủy.`, type: 'failed' }]);
+          syncToSheet(campaignId);
+          cleanupRef.current?.();
+          cleanupRef.current = null;
+          disconnectSocket();
+        }
+      });
+    } catch (err: unknown) {
+      setIsSending(false);
+      const msg = err instanceof ApiError ? err.message : 'Không thể theo dõi chiến dịch.';
+      setError(msg);
+      setLogs(prev => [...prev, { id: Date.now(), text: `[ERROR] ${msg}`, type: 'failed' }]);
+    }
+  }, [syncToSheet]);
+
   const stopSending = useCallback(async () => {
     if (campaignId) {
       try {
@@ -147,6 +219,6 @@ export function useSendingEngine() {
 
   return {
     progress, isSending, logs, successCount, failedCount, totalCount, error, campaignId,
-    startSending, stopSending, resetSending,
+    startSending, stopSending, resetSending, monitorCampaign,
   } as const;
 }

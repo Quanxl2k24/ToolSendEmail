@@ -46,6 +46,42 @@ export const CreateCampaignSchema = z.object({
   sheetId: z
     .number()
     .optional(),
+  type: z
+    .enum(["ONE_SHOT", "SCHEDULED"])
+    .default("ONE_SHOT")
+    .optional(),
+  startTime: z
+    .string()
+    .datetime({ offset: true, message: "Thời gian bắt đầu không hợp lệ (ISO 8601)" })
+    .optional(),
+  endTime: z
+    .string()
+    .datetime({ offset: true, message: "Thời gian kết thúc không hợp lệ (ISO 8601)" })
+    .optional(),
+}).superRefine((data, ctx) => {
+  if (data.type === "SCHEDULED") {
+    if (!data.startTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng nhập thời gian bắt đầu cho chiến dịch dài ngày",
+        path: ["startTime"],
+      });
+    }
+    if (!data.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng nhập thời gian kết thúc cho chiến dịch dài ngày",
+        path: ["endTime"],
+      });
+    }
+    if (data.startTime && data.endTime && new Date(data.startTime) >= new Date(data.endTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Thời gian bắt đầu phải trước thời gian kết thúc",
+        path: ["endTime"],
+      });
+    }
+  }
 });
 
 export type CreateCampaignDto = z.infer<typeof CreateCampaignSchema>;

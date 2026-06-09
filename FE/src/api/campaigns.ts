@@ -15,6 +15,9 @@ export interface SendCampaignPayload {
   file?: File;
   googleSheetUrl?: string;
   emailColumn?: string;
+  type?: 'ONE_SHOT' | 'SCHEDULED';
+  startTime?: string;
+  endTime?: string;
 }
 
 export async function sendCampaign(payload: SendCampaignPayload) {
@@ -33,6 +36,18 @@ export async function sendCampaign(payload: SendCampaignPayload) {
 
   if (payload.emailColumn) {
     fd.append('emailColumn', payload.emailColumn);
+  }
+
+  if (payload.type) {
+    fd.append('type', payload.type);
+  }
+
+  if (payload.startTime) {
+    fd.append('startTime', payload.startTime);
+  }
+
+  if (payload.endTime) {
+    fd.append('endTime', payload.endTime);
   }
 
   return api.postForm<SendCampaignResponse>('/campaigns/send', fd);

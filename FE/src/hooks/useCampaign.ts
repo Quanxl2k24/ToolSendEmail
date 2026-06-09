@@ -42,6 +42,9 @@ export function useCampaign() {
   const [senderName, setSenderName] = useState("Email Marketing");
   const [htmlBody, setHtmlBody] = useState(DEFAULT_HTML);
   const [customCSS, setCustomCSS] = useState("");
+  const [campaignType, setCampaignType] = useState<"ONE_SHOT" | "SCHEDULED">("ONE_SHOT");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
 
   const goNext = useCallback(() => setStep((s) => Math.min(s + 1, 4)), []);
   const goBack = useCallback(() => setStep((s) => Math.max(s - 1, 1)), []);
@@ -55,6 +58,9 @@ export function useCampaign() {
     setSenderName("Email Marketing");
     setHtmlBody(DEFAULT_HTML);
     setCustomCSS("");
+    setCampaignType("ONE_SHOT");
+    setStartTime("");
+    setEndTime("");
   }, []);
 
   return {
@@ -75,6 +81,12 @@ export function useCampaign() {
     setHtmlBody,
     customCSS,
     setCustomCSS,
+    campaignType,
+    setCampaignType,
+    startTime,
+    setStartTime,
+    endTime,
+    setEndTime,
     reset,
   } as const;
 }

@@ -44,6 +44,7 @@ export interface SendingState {
 // ─── BE API Types ──────────────────────────────────────────────────────────────
 
 export type CampaignStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+export type CampaignType = 'ONE_SHOT' | 'SCHEDULED';
 
 export type MailLogStatus = 'QUEUED' | 'SENT' | 'DELIVERED' | 'BOUNCED' | 'OPENED' | 'FAILED' | 'CANCELLED';
 
@@ -52,9 +53,12 @@ export interface Campaign {
   name: string;
   subject: string;
   status: CampaignStatus;
+  type: CampaignType | null;
   totalEmails: number;
   sentCount: number;
   failedCount: number;
+  startTime: string | null;
+  endTime: string | null;
   createdAt: string;
 }
 
@@ -65,6 +69,7 @@ export interface CampaignDetail extends Campaign {
   googleSheetUrl?: string | null;
   sheetName?: string | null;
   sheetId?: number | null;
+  lastScannedAt?: string | null;
 }
 
 export interface MailLog {
@@ -83,8 +88,12 @@ export interface MailLog {
 export interface SendCampaignResponse {
   success: boolean;
   campaignId: string;
-  totalQueued: number;
+  totalQueued?: number;
+  totalRows?: number;
   invalidSkipped: number;
+  type?: string;
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface CampaignDetailResponse {

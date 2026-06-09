@@ -10,6 +10,12 @@ datasource db {
   provider = "postgresql"
 }
 
+// Loại chiến dịch
+enum CampaignType {
+  ONE_SHOT
+  SCHEDULED
+}
+
 // Trạng thái của một chiến dịch gửi mail
 enum CampaignStatus {
   PENDING
@@ -36,6 +42,7 @@ model Campaign {
   name             String
   subject          String
   htmlBody         String         @map("html_body") @db.Text
+  type             CampaignType   @default(ONE_SHOT) @map("type")
   status           CampaignStatus @default(PENDING)
   totalEmails      Int            @default(0) @map("total_emails")
   sentCount        Int            @default(0) @map("sent_count")
@@ -44,6 +51,9 @@ model Campaign {
   googleSheetUrl   String?        @map("google_sheet_url")
   sheetName        String?        @map("sheet_name")
   sheetId          Int?           @map("sheet_id")
+  startTime        DateTime?      @map("start_time")
+  endTime          DateTime?      @map("end_time")
+  lastScannedAt    DateTime?      @map("last_scanned_at")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 

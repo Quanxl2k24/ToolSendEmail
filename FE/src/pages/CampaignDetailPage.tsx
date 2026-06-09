@@ -184,10 +184,19 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
 
         <div className="grid grid-cols-3 gap-6 mt-8 max-md:grid-cols-2">
           {[
-            // { label: "Tổng email", value: campaign.totalEmails },
+            { label: "Loại", value: campaign.type === 'SCHEDULED' ? 'Dài ngày' : 'Gửi một lần' },
             { label: "Đã gửi", value: campaign.sentCount },
             { label: "Thất bại", value: campaign.failedCount },
             { label: "Ngày tạo", value: formatDate(campaign.createdAt) },
+            ...(campaign.type === 'SCHEDULED' && campaign.startTime
+              ? [{ label: "Bắt đầu", value: formatDate(campaign.startTime) }]
+              : []),
+            ...(campaign.type === 'SCHEDULED' && campaign.endTime
+              ? [{ label: "Kết thúc", value: formatDate(campaign.endTime) }]
+              : []),
+            ...(campaign.type === 'SCHEDULED' && campaign.lastScannedAt
+              ? [{ label: "Quét lần cuối", value: formatDate(campaign.lastScannedAt) }]
+              : []),
           ].map(({ label, value }) => (
             <div
               key={label}

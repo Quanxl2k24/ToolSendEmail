@@ -65,7 +65,7 @@ export const previewSheet = async (
  * 6. Return campaignId immediately (async processing begins in background)
  */
 
-function renderTemplate(template: string, row: Record<string, string>): string {
+export function renderTemplate(template: string, row: Record<string, string>): string {
   return template.replace(/\{\{(.+?)\}\}/g, (_, key) => {
     const trimmed = key.trim();
     return row[trimmed] !== undefined ? row[trimmed] : `{{${trimmed}}}`;
@@ -81,7 +81,7 @@ interface SendCampaignOptions {
 export const sendCampaign = async (options: SendCampaignOptions) => {
   const { body, file, userEmail } = options;
 
-  // ── Step 1: Validate campaign metadata (name, subject, htmlBody) ──────────
+  // ── Step 1: Validate campaign metadata ────────────────────────────────────
   const parsed = CreateCampaignSchema.safeParse(body);
   if (!parsed.success) {
     throw new AppError(
@@ -89,7 +89,7 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
       400,
     );
   }
-  const { name, subject, htmlBody, googleSheetUrl, emailColumn, sheetName, sheetId } = parsed.data;
+  const { name, subject, htmlBody, googleSheetUrl, emailColumn, sheetName, sheetId, type, startTime, endTime } = parsed.data;
 
   // ── Step 2: Parse contacts from file or Google Sheet ─────────────────────
   let rawData: any[] = [];
@@ -130,7 +130,9 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
   }
 
   // ── Step 3.5: Check Quota & Upsert Contacts ──────────────────────────────
-  await checkAndIncrementQuota(contacts.length);
+  if (type !== "SCHEDULED") {
+    await checkAndIncrementQuota(contacts.length);
+  }
 
   await Promise.all(
     contacts.map((c) =>
@@ -147,8 +149,11 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
     name,
     subject,
     htmlBody,
-    totalEmails: contacts.length,
+    totalEmails: type === "SCHEDULED" ? 0 : contacts.length,
     createdBy: userEmail,
+    type: type ?? "ONE_SHOT",
+    startTime: startTime ? new Date(startTime) : null,
+    endTime: endTime ? new Date(endTime) : null,
   });
 
   // Cập nhật thông tin Google Sheet cho campaign
@@ -163,107 +168,125 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
     });
   }
 
-  // ── Step 5: Bulk insert MailLogs (status: QUEUED) với rowIndex ──────────
-  const rawStringRows: Record<string, string>[] = rawData.map((r: any) =>
-    Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? "")]))
-  );
+  // ── ONE_SHOT: xử lý như hiện tại ─────────────────────────────────────────
+  if (type !== "SCHEDULED") {
+    const rawStringRows: Record<string, string>[] = rawData.map((r: any) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? "")]))
+    );
 
-  const validRowIndices: number[] = [];
-  const validRows: Record<string, string>[] = [];
-  for (let ri = 0; ri < rawStringRows.length; ri++) {
-    const row = rawStringRows[ri]!;
-    const testRow: Record<string, string> = {};
-    for (const key in row) {
-      const lowerKey = key.trim().toLowerCase();
-      if (emailColumn && lowerKey === emailColumn.trim().toLowerCase()) {
-        testRow.email = row[key]!;
-      } else if (!emailColumn && (lowerKey === "email" || lowerKey === "thư điện tử" || lowerKey === "e-mail")) {
-        testRow.email = row[key]!;
+    const validRowIndices: number[] = [];
+    const validRows: Record<string, string>[] = [];
+    for (let ri = 0; ri < rawStringRows.length; ri++) {
+      const row = rawStringRows[ri]!;
+      const testRow: Record<string, string> = {};
+      for (const key in row) {
+        const lowerKey = key.trim().toLowerCase();
+        if (emailColumn && lowerKey === emailColumn.trim().toLowerCase()) {
+          testRow.email = row[key]!;
+        } else if (!emailColumn && (lowerKey === "email" || lowerKey === "thư điện tử" || lowerKey === "e-mail")) {
+          testRow.email = row[key]!;
+        }
+        testRow[key] = row[key]!;
       }
-      testRow[key] = row[key]!;
+      const result = ContactSchema.safeParse(testRow);
+      if (result.success) {
+        validRows.push(row);
+        validRowIndices.push(ri);
+      }
     }
-    const result = ContactSchema.safeParse(testRow);
-    if (result.success) {
-      validRows.push(row);
-      validRowIndices.push(ri);
-    }
+
+    await bulkCreateMailLogs(
+      contacts.map((c, i) => {
+        const log: {
+          campaignId: string;
+          recipientEmail: string;
+          recipientName?: string;
+          rowIndex?: number | null;
+        } = {
+          campaignId: campaign.id,
+          recipientEmail: c.email,
+        };
+        if (c.name !== undefined) log.recipientName = c.name;
+        if (isGoogleSheet && i < validRowIndices.length) {
+          log.rowIndex = validRowIndices[i]!;
+        }
+        return log;
+      }),
+    );
+
+    const mailLogs = await getMailLogsForQueue(campaign.id);
+
+    const spreadsheetId = googleSheetUrl
+      ? parseGoogleSheetUrl(googleSheetUrl).spreadsheetId
+      : null;
+
+    const safeSubject = subject ?? "";
+    const safeHtml = htmlBody ?? "";
+    const jobsAdded = await addBulkEmailJobs(
+      mailLogs.map((log, i) => {
+        const row = validRows[i] ?? {};
+        const job: {
+          logId: string;
+          campaignId: string;
+          to: string;
+          subject: string;
+          html: string;
+          recipientName?: string;
+          sheetUpdateInfo?: {
+            spreadsheetId: string;
+            sheetName: string;
+            rowIndex: number;
+          };
+        } = {
+          logId: log.id,
+          campaignId: campaign.id,
+          to: log.recipientEmail,
+          subject: renderTemplate(safeSubject, row),
+          html: renderTemplate(safeHtml, row),
+        };
+        if (log.recipientName !== null && log.recipientName !== undefined) {
+          job.recipientName = log.recipientName;
+        }
+        if (isGoogleSheet && spreadsheetId && resolvedSheetName && log.rowIndex != null) {
+          job.sheetUpdateInfo = {
+            spreadsheetId,
+            sheetName: resolvedSheetName,
+            rowIndex: log.rowIndex,
+          };
+        }
+        return job;
+      }),
+    );
+
+    logger.info("Campaign queued", {
+      campaignId: campaign.id,
+      jobsAdded,
+      invalidSkipped: invalidCount,
+      isGoogleSheet,
+    });
+
+    return {
+      campaignId: campaign.id,
+      totalQueued: contacts.length,
+      invalidSkipped: invalidCount,
+    };
   }
 
-  await bulkCreateMailLogs(
-    contacts.map((c, i) => {
-      const log: {
-        campaignId: string;
-        recipientEmail: string;
-        recipientName?: string;
-        rowIndex?: number | null;
-      } = {
-        campaignId: campaign.id,
-        recipientEmail: c.email,
-      };
-      if (c.name !== undefined) log.recipientName = c.name;
-      if (isGoogleSheet && i < validRowIndices.length) {
-        log.rowIndex = validRowIndices[i]!;
-      }
-      return log;
-    }),
-  );
-
-  // ── Step 6: Fetch created MailLog IDs and push to BullMQ ─────────────────
-  const mailLogs = await getMailLogsForQueue(campaign.id);
-
-  const spreadsheetId = googleSheetUrl
-    ? parseGoogleSheetUrl(googleSheetUrl).spreadsheetId
-    : null;
-
-  const safeSubject = subject ?? "";
-  const safeHtml = htmlBody ?? "";
-  const jobsAdded = await addBulkEmailJobs(
-    mailLogs.map((log, i) => {
-      const row = validRows[i] ?? {};
-      const job: {
-        logId: string;
-        campaignId: string;
-        to: string;
-        subject: string;
-        html: string;
-        recipientName?: string;
-        sheetUpdateInfo?: {
-          spreadsheetId: string;
-          sheetName: string;
-          rowIndex: number;
-        };
-      } = {
-        logId: log.id,
-        campaignId: campaign.id,
-        to: log.recipientEmail,
-        subject: renderTemplate(safeSubject, row),
-        html: renderTemplate(safeHtml, row),
-      };
-      if (log.recipientName !== null && log.recipientName !== undefined) {
-        job.recipientName = log.recipientName;
-      }
-      if (isGoogleSheet && spreadsheetId && resolvedSheetName && log.rowIndex != null) {
-        job.sheetUpdateInfo = {
-          spreadsheetId,
-          sheetName: resolvedSheetName,
-          rowIndex: log.rowIndex,
-        };
-      }
-      return job;
-    }),
-  );
-
-  logger.info("Campaign queued", {
+  // ── SCHEDULED: lưu chờ startTime, watcher sẽ xử lý ───────────────────────
+  logger.info("Scheduled campaign created", {
     campaignId: campaign.id,
-    jobsAdded,
-    invalidSkipped: invalidCount,
-    isGoogleSheet,
+    startTime,
+    endTime,
+    totalContacts: contacts.length,
   });
 
   return {
     campaignId: campaign.id,
-    totalQueued: contacts.length,
+    totalRows: contacts.length,
     invalidSkipped: invalidCount,
+    type: "SCHEDULED",
+    startTime,
+    endTime,
   };
 };
 

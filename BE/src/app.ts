@@ -19,6 +19,7 @@ import { initSocketGateway } from "./modules/websockets/events.gateway.js";
 
 // Queue Worker
 import { startEmailWorker } from "./modules/queue/queue.worker.js";
+import { startCampaignWatcher } from "./modules/campaigns/campaign.watcher.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -36,6 +37,10 @@ initSocketGateway(server);
 // Worker runs in the same process in development.
 // In production, run queue.worker.ts as a separate process/container.
 startEmailWorker();
+
+// ── Initialize Campaign Watcher (Scheduler) ───────────────────────────────
+// Scans scheduled campaigns every 5 minutes for new sheet rows.
+startCampaignWatcher();
 
 // ── Routes ─────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRouter);

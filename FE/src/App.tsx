@@ -4,6 +4,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useCampaign } from "./hooks/useCampaign";
 import { useRecipients } from "./hooks/useRecipients";
 import { useSendingEngine } from "./hooks/useSendingEngine";
+import type { CampaignStatus } from "./types";
 import type { CampaignSendData } from "./hooks/useSendingEngine";
 import { LoginPage } from "./components/auth/LoginPage";
 import { Sidebar, TopBar, WizardFooter } from "./components/layout";
@@ -52,10 +53,16 @@ export default function App() {
     setPage("wizard");
   }, [campaign, recipients, engine]);
 
-  const goToDetail = useCallback((id: string) => {
+  const goToDetail = useCallback((id: string, status?: CampaignStatus) => {
     setSelectedCampaignId(id);
-    setPage("detail");
-  }, []);
+    if (status === "PROCESSING") {
+      campaign.goTo(4);
+      engine.monitorCampaign(id);
+      setPage("wizard");
+    } else {
+      setPage("detail");
+    }
+  }, [campaign, engine]);
 
   const handleInsertVariable = useCallback(
     (variable: string) => {
@@ -88,6 +95,14 @@ export default function App() {
   }, [campaign, recipients.fileUploaded]);
 
   const handleStartSending = useCallback(() => {
+    const toISO = (v: string) => {
+      if (!v) return undefined;
+      const date = new Date(v);
+      const offset = -date.getTimezoneOffset();
+      const sign = offset >= 0 ? '+' : '-';
+      const pad = (n: number) => String(Math.abs(n)).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00.000${sign}${pad(Math.floor(offset / 60))}:${pad(offset % 60)}`;
+    };
     const data: CampaignSendData = {
       name: campaign.name,
       subject: campaign.subject,
@@ -95,6 +110,9 @@ export default function App() {
       file: recipients.uploadedFile,
       googleSheetUrl: recipients.googleSheetLink,
       emailColumn: recipients.emailColumn,
+      type: campaign.campaignType,
+      startTime: toISO(campaign.startTime),
+      endTime: toISO(campaign.endTime),
     };
     engine.startSending(data);
   }, [campaign, recipients, engine]);
@@ -175,6 +193,12 @@ export default function App() {
                   onGoogleSheetLinkChange={recipients.setGoogleSheetLink}
                   onConnectGoogleSheet={recipients.handleConnectGoogleSheet}
                   onEmailColumnChange={recipients.setEmailColumn}
+                  campaignType={campaign.campaignType}
+                  onCampaignTypeChange={campaign.setCampaignType}
+                  startTime={campaign.startTime}
+                  endTime={campaign.endTime}
+                  onStartTimeChange={campaign.setStartTime}
+                  onEndTimeChange={campaign.setEndTime}
                 />
               )}
               {campaign.step === 2 && (
@@ -202,6 +226,9 @@ export default function App() {
                   recipientCount={recipients.recipientCount}
                   campaignName={campaign.name}
                   subject={campaign.subject}
+                  campaignType={campaign.campaignType}
+                  startTime={campaign.startTime}
+                  endTime={campaign.endTime}
                 />
               )}
               {campaign.step === 4 && (

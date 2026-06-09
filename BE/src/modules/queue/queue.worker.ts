@@ -119,14 +119,14 @@ export const startEmailWorker = (): void => {
         const [campaign, cancelledCount] = await Promise.all([
           prisma.campaign.findUnique({
             where: { id: campaignId },
-            select: { sentCount: true, failedCount: true, totalEmails: true, status: true },
+            select: { sentCount: true, failedCount: true, totalEmails: true, status: true, type: true },
           }),
           prisma.mailLog.count({
             where: { campaignId, status: "CANCELLED" },
           }),
         ]);
 
-        if (campaign && campaign.status === "PROCESSING") {
+        if (campaign && campaign.status === "PROCESSING" && campaign.type !== "SCHEDULED") {
           const totalProcessed = campaign.sentCount + campaign.failedCount + cancelledCount;
           if (totalProcessed >= campaign.totalEmails) {
             const newStatus = campaign.sentCount > 0 ? "COMPLETED" : "FAILED";
@@ -149,7 +149,7 @@ export const startEmailWorker = (): void => {
       const updated = await prisma.campaign.update({
         where: { id: campaignId },
         data: { sentCount: { increment: 1 } },
-        select: { sentCount: true, failedCount: true, totalEmails: true, status: true },
+        select: { sentCount: true, failedCount: true, totalEmails: true, status: true, type: true },
       });
 
       // Đếm số mail bị hủy để tính điều kiện hoàn tất
@@ -158,13 +158,16 @@ export const startEmailWorker = (): void => {
       });
 
       const totalProcessed = updated.sentCount + updated.failedCount + cancelledCount;
-      const isDone = totalProcessed >= updated.totalEmails;
-      if (isDone && updated.status === "PROCESSING") {
-        const newStatus = updated.sentCount > 0 ? "COMPLETED" : "FAILED";
-        await prisma.campaign.update({
-          where: { id: campaignId },
-          data: { status: newStatus },
-        });
+      let newStatus = updated.status;
+      if (updated.type !== "SCHEDULED") {
+        const isDone = totalProcessed >= updated.totalEmails;
+        if (isDone && updated.status === "PROCESSING") {
+          newStatus = updated.sentCount > 0 ? "COMPLETED" : "FAILED";
+          await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { status: newStatus },
+          });
+        }
       }
 
       // Bắn realtime progress lên client
@@ -172,7 +175,7 @@ export const startEmailWorker = (): void => {
         sent: updated.sentCount,
         failed: updated.failedCount,
         total: updated.totalEmails,
-        status: isDone ? (updated.sentCount > 0 ? "COMPLETED" : "FAILED") : "PROCESSING",
+        status: newStatus,
       });
     } catch (err) {
       logger.error("Failed to update campaign after job completion", { campaignId, err: String(err) });
@@ -204,7 +207,7 @@ export const startEmailWorker = (): void => {
       const updated = await prisma.campaign.update({
         where: { id: campaignId },
         data: { failedCount: { increment: 1 } },
-        select: { sentCount: true, failedCount: true, totalEmails: true, status: true },
+        select: { sentCount: true, failedCount: true, totalEmails: true, status: true, type: true },
       });
 
       const cancelledCount = await prisma.mailLog.count({
@@ -212,20 +215,23 @@ export const startEmailWorker = (): void => {
       });
 
       const totalProcessed = updated.sentCount + updated.failedCount + cancelledCount;
-      const isDone = totalProcessed >= updated.totalEmails;
-      if (isDone && updated.status === "PROCESSING") {
-        const newStatus = updated.sentCount > 0 ? "COMPLETED" : "FAILED";
-        await prisma.campaign.update({
-          where: { id: campaignId },
-          data: { status: newStatus },
-        });
+      let newStatus = updated.status;
+      if (updated.type !== "SCHEDULED") {
+        const isDone = totalProcessed >= updated.totalEmails;
+        if (isDone && updated.status === "PROCESSING") {
+          newStatus = updated.sentCount > 0 ? "COMPLETED" : "FAILED";
+          await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { status: newStatus },
+          });
+        }
       }
 
       emitProgressUpdate(campaignId, {
         sent: updated.sentCount,
         failed: updated.failedCount,
         total: updated.totalEmails,
-        status: isDone ? (updated.sentCount > 0 ? "COMPLETED" : "FAILED") : "PROCESSING",
+        status: newStatus,
       });
 
       logger.error("Email job failed permanently", { logId, campaignId, error: err.message });

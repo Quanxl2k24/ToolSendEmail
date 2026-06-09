@@ -7,6 +7,9 @@ interface Props {
   recipientCount: number;
   campaignName: string;
   subject: string;
+  campaignType: 'ONE_SHOT' | 'SCHEDULED';
+  startTime?: string;
+  endTime?: string;
 }
 
 export function Step3ValidationPage(props: Props) {
@@ -78,6 +81,43 @@ export function Step3ValidationPage(props: Props) {
             <div className="text-sm text-graphite truncate" title={props.subject}>{props.subject}</div>
           </div>
         </div>
+
+        <div className="flex items-center gap-4 p-5 border border-fog rounded-xl bg-mist min-w-0">
+          <Info size={24} className="text-midnight-ink shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-sm">Loại chiến dịch</div>
+            <div className="text-sm text-graphite truncate">
+              {props.campaignType === 'SCHEDULED' ? (
+                <>Dài ngày — Quét sheet mỗi 5 phút</>
+              ) : (
+                <>Gửi một lần — Gửi hết rồi dừng</>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {props.campaignType === 'SCHEDULED' && (
+          <>
+            <div className="flex items-center gap-4 p-5 border border-fog rounded-xl bg-mist min-w-0">
+              <Info size={24} className="text-midnight-ink shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm">Thời gian bắt đầu</div>
+                <div className="text-sm text-graphite truncate">
+                  {props.startTime ? new Date(props.startTime).toLocaleString('vi-VN') : '—'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-5 border border-fog rounded-xl bg-mist min-w-0">
+              <Info size={24} className="text-midnight-ink shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm">Thời gian kết thúc</div>
+                <div className="text-sm text-graphite truncate">
+                  {props.endTime ? new Date(props.endTime).toLocaleString('vi-VN') : '—'}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -16,11 +16,22 @@ export const createCampaign = async (data: {
   htmlBody: string;
   totalEmails: number;
   createdBy: string;
+  type?: "ONE_SHOT" | "SCHEDULED";
+  startTime?: Date | null;
+  endTime?: Date | null;
 }) => {
+  const status = data.type === "SCHEDULED" ? "PENDING" : "PROCESSING";
   return prisma.campaign.create({
     data: {
-      ...data,
-      status: "PROCESSING",
+      name: data.name,
+      subject: data.subject,
+      htmlBody: data.htmlBody,
+      totalEmails: data.totalEmails,
+      createdBy: data.createdBy,
+      type: data.type ?? "ONE_SHOT",
+      startTime: data.startTime ?? null,
+      endTime: data.endTime ?? null,
+      status,
     },
   });
 };
@@ -45,9 +56,12 @@ export const listCampaigns = async (createdBy: string) => {
       name: true,
       subject: true,
       status: true,
+      type: true,
       totalEmails: true,
       sentCount: true,
       failedCount: true,
+      startTime: true,
+      endTime: true,
       createdAt: true,
     },
   });
@@ -97,4 +111,39 @@ export const getMailLogsForQueue = async (campaignId: string) => {
     where: { campaignId, status: "QUEUED" },
     select: { id: true, recipientEmail: true, recipientName: true, rowIndex: true },
   });
+};
+
+export const findScheduledCampaignsToActivate = async (now: Date) => {
+  return prisma.campaign.findMany({
+    where: {
+      type: "SCHEDULED",
+      status: "PENDING",
+      startTime: { lte: now },
+    },
+  });
+};
+
+export const findActiveScheduledCampaigns = async (now: Date) => {
+  return prisma.campaign.findMany({
+    where: {
+      type: "SCHEDULED",
+      status: "PROCESSING",
+      startTime: { lte: now },
+      endTime: { gte: now },
+    },
+  });
+};
+
+export const findExpiredScheduledCampaigns = async (now: Date) => {
+  return prisma.campaign.findMany({
+    where: {
+      type: "SCHEDULED",
+      status: "PROCESSING",
+      endTime: { lt: now },
+    },
+  });
+};
+
+export const updateCampaignField = async (id: string, data: Record<string, any>) => {
+  return prisma.campaign.update({ where: { id }, data });
 };
