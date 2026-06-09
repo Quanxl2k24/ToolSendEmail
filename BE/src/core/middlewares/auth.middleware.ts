@@ -2,27 +2,22 @@ import type { Request, Response, NextFunction } from "express";
 import { google } from "googleapis";
 import { AppError } from "../exceptions/appError.js";
 import { upsertUserToken } from "../../modules/auth/token.service.js";
+import { verifyJwt, verifyJwtIgnoreExpiry } from "../utils/jwt.util.js";
+import type { JwtPayload } from "../utils/jwt.util.js";
 
 /**
- * Google OAuth2 Auth Middleware
- *
- * Strategy: Validate Google OAuth2 Access Token passed in the Authorization header.
- * The frontend must obtain the token via Google Sign-In and send it as:
- *   Authorization: Bearer <google_access_token>
- *
- * The middleware verifies the token using Google's tokeninfo endpoint and
- * attaches the user info to req.user.
+ * GoogleUser — attached to req.user after successful authentication.
+ * accessToken may be present when using legacy Google token auth.
  */
-
 export interface GoogleUser {
-  sub: string;       // Google User ID
+  sub: string;
   email: string;
   name: string;
   picture?: string;
-  accessToken: string; // Keep the original token for Sheets/Gmail API calls
+  /** Only present when using legacy Google access token auth (backward compat) */
+  accessToken?: string;
 }
 
-// Augment Express Request to include our user type
 declare global {
   namespace Express {
     interface Request {
@@ -31,6 +26,107 @@ declare global {
   }
 }
 
+/**
+ * JWT-based authentication middleware.
+ * Verifies the Bearer token as a JWT signed by this server.
+ * Used for auth routes that don't need Google API access.
+ */
+export const jwtAuthMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(new AppError("Chưa xác thực. Vui lòng đăng nhập.", 401));
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return next(new AppError("Token không hợp lệ.", 401));
+  }
+
+  // Mock mode (development)
+  if (token.startsWith("mock_")) {
+    const email = token.split("_")[1] || "dev-user@example.com";
+    req.user = {
+      sub: "mock_sub_123456789",
+      email,
+      name: "Developer Sandbox",
+      picture: "https://lh3.googleusercontent.com/a/default-user=s96-c",
+      accessToken: token,
+    };
+    return next();
+  }
+
+  try {
+    const payload: JwtPayload = verifyJwt(token);
+    const user: GoogleUser = {
+      sub: payload.sub,
+      email: payload.email,
+      name: payload.name,
+    };
+    if (payload.picture) user.picture = payload.picture;
+    req.user = user;
+    next();
+  } catch {
+    return next(new AppError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.", 401));
+  }
+};
+
+/**
+ * JWT refresh middleware — accepts both valid and expired tokens.
+ * Only rejects if the signature is invalid or the token is malformed.
+ */
+export const jwtRefreshMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(new AppError("Chưa xác thực. Vui lòng đăng nhập.", 401));
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return next(new AppError("Token không hợp lệ.", 401));
+  }
+
+  if (token.startsWith("mock_")) {
+    const email = token.split("_")[1] || "dev-user@example.com";
+    req.user = {
+      sub: "mock_sub_123456789",
+      email,
+      name: "Developer Sandbox",
+      picture: "https://lh3.googleusercontent.com/a/default-user=s96-c",
+      accessToken: token,
+    };
+    return next();
+  }
+
+  try {
+    const payload = verifyJwtIgnoreExpiry(token);
+    req.user = {
+      sub: payload.sub,
+      email: payload.email,
+      name: payload.name,
+    };
+    if (payload.picture) req.user.picture = payload.picture;
+    next();
+  } catch {
+    return next(new AppError("Token không hợp lệ hoặc đã bị thay đổi.", 401));
+  }
+};
+
+/**
+ * Legacy Google OAuth2 token verification middleware.
+ * Validates the access_token directly against Google's userinfo API.
+ * Kept for backward compatibility with campaign routes during migration.
+ * Will be replaced by jwtAuthMiddleware in Phase 3.
+ */
 export const googleAuthMiddleware = async (
   req: Request,
   res: Response,
@@ -60,7 +156,6 @@ export const googleAuthMiddleware = async (
   }
 
   try {
-    // Verify token via Google's OAuth2 API
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: accessToken });
 
@@ -85,7 +180,7 @@ export const googleAuthMiddleware = async (
     );
 
     next();
-  } catch (error) {
+  } catch {
     next(new AppError("Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.", 401));
   }
 };

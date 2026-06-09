@@ -1,5 +1,5 @@
-import { ArrowLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import { Button } from '../ui';
+import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Button } from "../ui";
 
 interface Props {
   step: number;
@@ -9,9 +9,15 @@ interface Props {
   onReset: () => void;
 }
 
-export function WizardFooter({ step, hasData, onBack, onNext, onReset }: Props) {
+export function WizardFooter({
+  step,
+  hasData,
+  onBack,
+  onNext,
+  onReset,
+}: Props) {
   return (
-    <div className="border-t border-fog px-10 py-5 flex justify-between items-center bg-white fixed bottom-0 left-0 right-0 z-10 max-md:px-5">
+    <div className="px-10 py-5 flex justify-between items-center bg-white fixed bottom-0 left-0 right-0 z-10 max-md:px-5">
       <div className="flex gap-3">
         {step > 1 && (
           <Button variant="ghost" onClick={onBack}>
@@ -26,7 +32,11 @@ export function WizardFooter({ step, hasData, onBack, onNext, onReset }: Props) 
       </div>
       <div>
         {step < 4 && (
-          <Button variant="primary" onClick={onNext} disabled={step === 1 && !hasData}>
+          <Button
+            variant="primary"
+            onClick={onNext}
+            disabled={step === 1 && !hasData}
+          >
             Tiếp tục <ChevronRight size={16} />
           </Button>
         )}

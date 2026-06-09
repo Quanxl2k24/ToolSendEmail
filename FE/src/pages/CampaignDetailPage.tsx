@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Inbox, RefreshCw, FileSpreadsheet } from 'lucide-react';
-import { Card, CardTitle, Button, TableContainer, Table, Th, Tr, Td } from '../components/ui';
-import { getCampaign, getMailLogs, syncCampaignToSheet, updateUserToken } from '../api/campaigns';
-import { refreshTokenSilently } from '../api/auth';
-import { getToken } from '../api/client';
-import type { CampaignDetail, MailLog, MailLogStatus } from '../types';
-
-import { cn } from '../lib/cn';
+import { useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  Mail,
+  Inbox,
+  RefreshCw,
+  FileSpreadsheet,
+} from "lucide-react";
+import { Button } from "../components/ui";
+import {
+  getCampaign,
+  getMailLogs,
+  syncCampaignToSheet,
+} from "../api/campaigns";
+import { refreshJwt } from "../api/auth";
+import type { CampaignDetail, MailLog, MailLogStatus } from "../types";
+import { cn } from "../lib/cn";
 
 interface Props {
   campaignId: string;
@@ -14,37 +24,39 @@ interface Props {
 }
 
 const statusLabel: Record<string, string> = {
-  PENDING: 'Chờ xử lý',
-  PROCESSING: 'Đang gửi',
-  COMPLETED: 'Hoàn tất',
-  CANCELLED: 'Đã hủy',
-  FAILED: 'Thất bại',
+  PENDING: "Chờ xử lý",
+  PROCESSING: "Đang gửi",
+  COMPLETED: "Hoàn tất",
+  CANCELLED: "Đã hủy",
+  FAILED: "Thất bại",
 };
 
 const logStatusStyle: Record<MailLogStatus, string> = {
-  QUEUED: 'text-graphite font-[440]',
-  SENT: 'font-[600] text-midnight-ink',
-  DELIVERED: 'font-[600] text-midnight-ink',
-  BOUNCED: 'font-[652] text-midnight-ink',
-  OPENED: 'font-[600] text-midnight-ink',
-  FAILED: 'font-[652] text-midnight-ink',
-  CANCELLED: 'text-silver font-[440]',
+  QUEUED: "text-graphite font-[440]",
+  SENT: "font-[600] text-midnight-ink",
+  DELIVERED: "font-[600] text-midnight-ink",
+  BOUNCED: "font-[652] text-midnight-ink",
+  OPENED: "font-[600] text-midnight-ink",
+  FAILED: "font-[652] text-midnight-ink",
+  CANCELLED: "text-silver font-[440]",
 };
 
 const statusBadge: Record<string, string> = {
-  PENDING: 'bg-mist text-graphite border-fog',
-  PROCESSING: 'bg-midnight-ink text-white border-midnight-ink',
-  COMPLETED: 'bg-white text-midnight-ink border-fog',
-  CANCELLED: 'bg-white text-silver border-silver',
-  FAILED: 'bg-mist text-midnight-ink border-fog',
+  PENDING: "bg-transparent text-graphite border-graphite",
+  PROCESSING: "bg-midnight-ink text-white border-midnight-ink",
+  COMPLETED: "bg-transparent text-midnight-ink border-midnight-ink",
+  CANCELLED: "bg-transparent text-ash border-ash",
+  FAILED: "bg-transparent text-midnight-ink border-midnight-ink",
 };
 
 function formatDate(d: string | null): string {
-  if (!d) return '—';
-  // simple visual date formatting
-  return new Date(d).toLocaleDateString('vi-VN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -58,10 +70,7 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getCampaign(campaignId),
-      getMailLogs(campaignId),
-    ])
+    Promise.all([getCampaign(campaignId), getMailLogs(campaignId)])
       .then(([campaignRes, logsRes]) => {
         if (cancelled) return;
         setCampaign(campaignRes.data);
@@ -69,10 +78,18 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Không thể tải chi tiết chiến dịch.');
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải chi tiết chiến dịch.",
+        );
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [campaignId]);
 
   if (loading) {
@@ -89,7 +106,9 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
         <AlertCircle size={32} className="mb-3" />
         <p className="font-[600]">Lỗi</p>
         <p className="text-sm mt-1">{error}</p>
-        <Button variant="ghost" className="mt-5" onClick={onBack}>Quay lại</Button>
+        <Button variant="ghost" className="mt-5" onClick={onBack}>
+          Quay lại
+        </Button>
       </div>
     );
   }
@@ -98,15 +117,13 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
     setSyncing(true);
     setSyncResult(null);
     try {
-      await refreshTokenSilently();
-      const freshToken = getToken();
-      if (freshToken) {
-        updateUserToken(freshToken).catch(() => {});
-      }
+      await refreshJwt();
       const result = await syncCampaignToSheet(campaignId);
-      setSyncResult(`Đã đồng bộ ${result.updated} trạng thái lên Google Sheet.`);
+      setSyncResult(
+        `Đã đồng bộ ${result.updated} trạng thái lên Google Sheet.`,
+      );
     } catch {
-      setSyncResult('Đồng bộ thất bại. Vui lòng thử lại.');
+      setSyncResult("Đồng bộ thất bại. Vui lòng thử lại.");
     } finally {
       setSyncing(false);
     }
@@ -115,7 +132,7 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
   if (!campaign) return null;
 
   return (
-    <div className="max-w-[900px] mx-auto">
+    <div className="max-w-[1200px] mx-auto">
       <button
         className="flex items-center gap-2 text-xs font-[440] text-graphite hover:text-midnight-ink mb-6 transition-colors cursor-pointer bg-transparent border-none"
         onClick={onBack}
@@ -123,19 +140,23 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
         <ArrowLeft size={16} /> Quay lại Dashboard
       </button>
 
-      <Card className="!p-8 mb-6">
+      <div className="bg-white border border-fog rounded-2xl p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <CardTitle className="!mb-1 text-lg">
+            <h2 className="text-lg font-[600] text-midnight-ink flex items-center gap-2 mb-1">
               <Mail size={20} /> {campaign.name}
-            </CardTitle>
+            </h2>
             <p className="text-xs text-graphite">{campaign.subject}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-[10px] font-semibold px-3 py-1 rounded-full border shrink-0 ${statusBadge[campaign.status] ?? 'bg-mist text-graphite border-fog'}`}>
-              {statusLabel[campaign.status] ?? campaign.status}
-            </span>
-          </div>
+          <span
+            className={cn(
+              "text-[11px] font-[440] px-3 py-1 rounded-full border shrink-0",
+              statusBadge[campaign.status] ??
+                "bg-transparent text-graphite border-fog",
+            )}
+          >
+            {statusLabel[campaign.status] ?? campaign.status}
+          </span>
         </div>
 
         {campaign.googleSheetUrl && (
@@ -150,62 +171,98 @@ export function CampaignDetailPage({ campaignId, onBack }: Props) {
               onClick={handleSyncSheet}
               disabled={syncing}
             >
-              <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? 'Đang đồng bộ...' : 'Đồng bộ trạng thái'}
+              <RefreshCw size={12} className={syncing ? "animate-spin" : ""} />
+              {syncing ? "Đang đồng bộ..." : "Đồng bộ trạng thái"}
             </Button>
           </div>
         )}
         {syncResult && (
-          <p className="text-xs text-center mb-4 text-midnight-ink font-[440]">{syncResult}</p>
+          <p className="text-xs text-center mb-4 text-midnight-ink font-[440]">
+            {syncResult}
+          </p>
         )}
 
-        <div className="grid grid-cols-4 gap-6 mt-8 max-md:grid-cols-2 divide-x divide-fog border-t border-b border-fog py-8">
+        <div className="grid grid-cols-3 gap-6 mt-8 max-md:grid-cols-2">
           {[
-            { label: 'Tổng email', value: campaign.totalEmails },
-            { label: 'Đã gửi', value: campaign.sentCount },
-            { label: 'Thất bại', value: campaign.failedCount },
-            { label: 'Ngày tạo', value: formatDate(campaign.createdAt) },
-          ].map(({ label, value }, i) => (
-            <div key={label} className={cn("text-center pr-2", i > 0 && "pl-6 max-md:pl-0 max-md:border-l-0")}>
-              <div className="text-[28px] font-[652] tracking-tight leading-none text-midnight-ink truncate">{value}</div>
-              <div className="text-[10px] font-[440] uppercase tracking-wider text-graphite mt-3">{label}</div>
+            // { label: "Tổng email", value: campaign.totalEmails },
+            { label: "Đã gửi", value: campaign.sentCount },
+            { label: "Thất bại", value: campaign.failedCount },
+            { label: "Ngày tạo", value: formatDate(campaign.createdAt) },
+          ].map(({ label, value }) => (
+            <div
+              key={label}
+              className="bg-white border border-fog rounded-2xl p-5"
+            >
+              <div className="text-[28px] font-[652] tracking-tight leading-none text-midnight-ink truncate">
+                {value}
+              </div>
+              <div className="text-[12px] font-[440] text-graphite mt-2">
+                {label}
+              </div>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
-      <Card className="!p-8">
-        <CardTitle><Inbox size={20} /> Nhật ký gửi email ({logs.length})</CardTitle>
+      <div className="bg-white border border-fog rounded-2xl p-6">
+        <h2 className="text-sm font-[600] text-midnight-ink flex items-center gap-2 mb-5">
+          <Inbox size={18} /> Nhật ký gửi email ({logs.length})
+        </h2>
 
         {logs.length === 0 ? (
           <p className="text-sm text-graphite">Chưa có bản ghi nào.</p>
         ) : (
-          <TableContainer className="!max-h-[500px]">
-            <Table>
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <Tr>
-                  <Th>Email</Th>
-                  <Th>Tên</Th>
-                  <Th>Trạng thái</Th>
-                  <Th>Lỗi</Th>
-                  <Th>Giờ gửi</Th>
-                </Tr>
+                <tr className="border-b border-fog">
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash sticky top-0 z-2 bg-white">
+                    Email
+                  </th>
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash sticky top-0 z-2 bg-white">
+                    Tên
+                  </th>
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash sticky top-0 z-2 bg-white">
+                    Trạng thái
+                  </th>
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash sticky top-0 z-2 bg-white">
+                    Lỗi
+                  </th>
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash sticky top-0 z-2 bg-white">
+                    Giờ gửi
+                  </th>
+                </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-fog">
                 {logs.map((log) => (
-                  <Tr key={log.id}>
-                    <Td className="font-medium">{log.recipientEmail}</Td>
-                    <Td className="text-graphite">{log.recipientName ?? '—'}</Td>
-                    <Td className={logStatusStyle[log.status]}>{log.status}</Td>
-                    <Td className="text-midnight-ink max-w-[200px] truncate">{log.errorMessage ?? '—'}</Td>
-                    <Td className="text-graphite text-xs">{formatDate(log.sentAt)}</Td>
-                  </Tr>
+                  <tr key={log.id} className="hover:bg-mist transition-colors">
+                    <td className="px-6 py-4 text-sm font-[440] text-midnight-ink">
+                      {log.recipientEmail}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-graphite font-[440]">
+                      {log.recipientName ?? "—"}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-6 py-4 text-sm",
+                        logStatusStyle[log.status],
+                      )}
+                    >
+                      {log.status}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-midnight-ink font-[440] max-w-[200px] truncate">
+                      {log.errorMessage ?? "—"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-graphite font-[440]">
+                      {formatDate(log.sentAt)}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
-            </Table>
-          </TableContainer>
+            </table>
+          </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

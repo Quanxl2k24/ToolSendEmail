@@ -4,52 +4,52 @@ import {
   getSavedUser,
   saveUser,
   clearUser,
-  requestGoogleToken,
-  fetchGoogleUserInfo,
-  revokeGoogleToken,
-  isGoogleAuthReady,
+  redirectToGoogleLogin,
+  handleOAuthCallback,
+  getOAuthError,
+  isJwtExpired,
+  getJwt,
+  clearJwt,
 } from '../api/auth';
 
-export function useAuth() {
-  const [user, setUser] = useState<User | null>(getSavedUser);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Check for OAuth callback JWT or error in URL on first load
+let initialUser: User | null = getSavedUser();
 
-  const signInWithGoogle = useCallback(async () => {
+// If there's a saved JWT but it's expired, force re-login
+const currentJwt = getJwt();
+if (currentJwt && isJwtExpired(currentJwt)) {
+  clearJwt();
+  clearUser();
+  initialUser = null;
+}
+
+// Check for OAuth callback
+const callbackResult = handleOAuthCallback();
+if (callbackResult) {
+  saveUser(callbackResult.user);
+  initialUser = callbackResult.user;
+}
+
+// Check for OAuth error
+let initialError: string | null = null;
+const oauthError = getOAuthError();
+if (oauthError) {
+  initialError = oauthError;
+}
+
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(initialError);
+
+  const signInWithGoogle = useCallback(() => {
     setLoading(true);
     setError(null);
-
-    try {
-      if (!isGoogleAuthReady()) {
-        throw new Error('Google Identity Services chưa được tải. Vui lòng đợi hoặc dùng Bypass.');
-      }
-
-      const accessToken = await requestGoogleToken();
-      const info = await fetchGoogleUserInfo(accessToken);
-
-      const newUser: User = {
-        email: info.email,
-        name: info.name ?? info.email,
-        picture: info.picture,
-        accessToken,
-      };
-
-      saveUser(newUser);
-      setUser(newUser);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại.');
-    } finally {
-      setLoading(false);
-    }
+    redirectToGoogleLogin();
   }, []);
 
-  const signOut = useCallback(async () => {
-    const current = getSavedUser();
-    if (current?.accessToken && current.accessToken.startsWith('ya29.')) {
-      try {
-        await revokeGoogleToken(current.accessToken);
-      } catch { /* silent */ }
-    }
+  const signOut = useCallback(() => {
+    clearJwt();
     clearUser();
     setUser(null);
     setError(null);

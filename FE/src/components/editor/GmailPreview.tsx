@@ -20,7 +20,7 @@ function buildEmailHTML(htmlBody: string, customCSS: string, subject: string, pr
     ? `<div style="display:none;font-size:1px;color:#fff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${replaceVariables(preheader, senderName)}</div>`
     : '';
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${title}</title><style>${css}</style><style>body{margin:0;padding:0;background-color:#f2f2f2}.email-container{max-width:600px;margin:0 auto}.email-client-bar{background:#e8e8e8;padding:6px 16px;font-size:11px;font-family:-apple-system,sans-serif;color:#666;display:flex;justify-content:space-between}</style></head><body>${preheaderHtml}<div class="email-client-bar"><span>Gmail</span><span>${title}</span></div><div class="email-container">${body}</div></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${title}</title><style>${css}</style><style>body{margin:0;padding:0;background-color:#f2f2f2}.email-container{max-width:600px;margin:0 auto}.email-client-bar{background:#e8e8e8;padding:6px 16px;font-size:11px;font-family:-apple-system,sans-serif;color:#666;display:flex;justify-content:space-between}</style><script>document.addEventListener('click',function(e){if(e.target.closest('a'))e.preventDefault()})</script></head><body>${preheaderHtml}<div class="email-client-bar"><span>Gmail</span><span>${title}</span></div><div class="email-container">${body}</div></body></html>`;
 }
 
 interface Props {
@@ -90,13 +90,14 @@ export function GmailPreview({ senderName, subject, preheader, htmlBody, customC
 
         <div className={cn('overflow-hidden transition-all duration-300', view === 'mobile' ? 'max-w-[375px] mx-auto border-x border-fog' : 'max-w-full')}>
           {htmlBody.trim() ? (
-            <iframe
-              key={iframeKey}
-              title="Email Preview"
-              srcDoc={fullHtml}
-              className="w-full border-none block"
-              style={{ height: view === 'mobile' ? '700px' : '600px' }}
-            />
+<iframe
+  key={iframeKey}
+  title="Email Preview"
+  srcDoc={fullHtml}
+  sandbox="allow-scripts"
+  className="w-full border-none block"
+  style={{ height: view === 'mobile' ? '700px' : '600px' }}
+/>
           ) : (
             <div className="py-16 px-5 text-center text-graphite text-sm">
               <p className="font-semibold mb-2">Chưa có nội dung</p>

@@ -12,6 +12,8 @@ export const VARIABLES = {
 
 export const AUTH = {
   STORAGE_KEY: "google_user",
+  JWT_STORAGE_KEY: "google_jwt",
+  API_URL: import.meta.env.VITE_API_URL ?? "http://localhost:3000",
   SCOPE: [
     "openid",
     "email",

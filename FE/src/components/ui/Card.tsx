@@ -10,7 +10,7 @@ export function Card({ highlight, className, children, ...rest }: CardProps) {
   return (
     <div
       className={cn(
-        'bg-white border border-fog rounded-2xl p-7',
+        'bg-white border border-fog rounded-2xl p-6',
         highlight && 'border-midnight-ink',
         className,
       )}

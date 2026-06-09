@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Loader2, AlertCircle, Inbox, Search } from "lucide-react";
-import { Card, Button } from "../components/ui";
+import { Button } from "../components/ui";
 import { listCampaigns } from "../api/campaigns";
 import type { Campaign, CampaignStatus } from "../types";
 import { cn } from "../lib/cn";
@@ -19,11 +19,11 @@ const statusLabel: Record<CampaignStatus, string> = {
 };
 
 const statusBadge: Record<CampaignStatus, string> = {
-  PENDING: "bg-mist text-graphite border-fog",
+  PENDING: "bg-transparent text-graphite border-graphite",
   PROCESSING: "bg-midnight-ink text-white border-midnight-ink",
-  COMPLETED: "bg-white text-midnight-ink border-fog",
-  CANCELLED: "bg-white text-silver border-silver",
-  FAILED: "bg-mist text-midnight-ink border-fog",
+  COMPLETED: "bg-transparent text-midnight-ink border-midnight-ink",
+  CANCELLED: "bg-transparent text-ash border-ash",
+  FAILED: "bg-transparent text-midnight-ink border-midnight-ink",
 };
 
 type StatusFilter = "ALL" | CampaignStatus;
@@ -75,41 +75,23 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
   });
 
   return (
-    <div className="max-w-[1100px] mx-auto">
-      {/* Upper Title Block */}
-      <div className="flex items-center justify-between mb-10">
-        <div>
-          <h1 className="text-2xl font-[652] tracking-tight text-midnight-ink">
-            Dashboard Chiến dịch
-          </h1>
-          <p className="text-xs text-graphite mt-1">
-            Quản lý và theo dõi hiệu suất các chiến dịch email marketing.
-          </p>
-        </div>
-        {/* <Button variant="primary" onClick={onNewCampaign}>
-          <Plus size={16} /> Tạo chiến dịch mới
-        </Button> */}
-      </div>
-
-      {/* Mobbin Section Stat Display */}
-      <div className="grid grid-cols-4 gap-6 mb-12 max-md:grid-cols-2 divide-x divide-fog border-b border-fog pb-10">
+    <div className="max-w-[1200px] mx-auto">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-4 gap-5 mb-10 max-md:grid-cols-2">
         {[
           { label: "Tổng chiến dịch", value: total },
-          { label: "Đang chạy", value: active },
+          { label: "Đang chạy / Chờ", value: active },
           { label: "Hoàn tất", value: completed },
-          { label: "Thất bại / Hủy", value: failed },
-        ].map(({ label, value }, i) => (
+          { label: "Thất bại / Đã hủy", value: failed },
+        ].map(({ label, value }) => (
           <div
             key={label}
-            className={cn(
-              "text-center",
-              i > 0 && "pl-6 max-md:pl-0 max-md:border-l-0",
-            )}
+            className="bg-white border border-fog rounded-2xl p-6"
           >
-            <div className="text-[56px] font-[652] tracking-[-0.021em] leading-none text-midnight-ink">
+            <div className="text-[40px] font-[652] leading-none text-midnight-ink">
               {value}
             </div>
-            <div className="text-[11px] font-[440] uppercase tracking-[0.07em] text-graphite mt-3">
+            <div className="text-[14px] font-[440] text-graphite mt-3">
               {label}
             </div>
           </div>
@@ -119,14 +101,16 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
       {/* Filter and Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {[
-            { id: "ALL", label: "Tất cả" },
-            { id: "PENDING", label: "Chờ xử lý" },
-            { id: "PROCESSING", label: "Đang gửi" },
-            { id: "COMPLETED", label: "Hoàn tất" },
-            { id: "FAILED", label: "Thất bại" },
-            { id: "CANCELLED", label: "Đã hủy" },
-          ].map((tab) => {
+          {(
+            [
+              { id: "ALL", label: "Tất cả" },
+              { id: "PENDING", label: "Chờ xử lý" },
+              { id: "PROCESSING", label: "Đang gửi" },
+              { id: "COMPLETED", label: "Hoàn tất" },
+              { id: "FAILED", label: "Thất bại" },
+              { id: "CANCELLED", label: "Đã hủy" },
+            ] as const
+          ).map((tab) => {
             const isActive = statusFilter === tab.id;
             return (
               <button
@@ -145,34 +129,43 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
           })}
         </div>
 
-        <div className="relative w-[280px] max-sm:w-full">
-          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-ash pointer-events-none">
-            <Search size={14} />
-          </span>
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Tìm kiếm theo tên, tiêu đề..."
-            className="w-full pl-9 pr-4 py-2 bg-mist border border-transparent rounded-full text-xs outline-none transition-all duration-200 focus:bg-white focus:border-midnight-ink text-midnight-ink placeholder-ash"
-          />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onNewCampaign}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-[600] bg-midnight-ink text-white border border-midnight-ink cursor-pointer transition-all duration-200 hover:shadow-[rgba(64,64,64,0.16)_0px_0px_0px_1px_inset]"
+          >
+            <Plus size={14} /> Chiến dịch mới
+          </button>
+
+          <div className="relative w-[220px]">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-ash pointer-events-none">
+              <Search size={14} />
+            </span>
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Tìm kiếm..."
+              className="w-full pl-9 pr-4 py-2 bg-mist border border-transparent rounded-full text-xs outline-none transition-all duration-200 focus:bg-white focus:border-midnight-ink text-midnight-ink placeholder-ash"
+            />
+          </div>
         </div>
       </div>
 
       {/* Content Area */}
       {loading ? (
-        <Card className="flex items-center justify-center py-24 text-graphite">
+        <div className="flex items-center justify-center py-24 text-graphite bg-white border border-fog rounded-2xl">
           <Loader2 size={24} className="animate-spin mr-3" /> Đang tải danh
           sách...
-        </Card>
+        </div>
       ) : error ? (
-        <Card className="flex flex-col items-center justify-center py-20 text-midnight-ink">
+        <div className="flex flex-col items-center justify-center py-20 text-midnight-ink bg-white border border-fog rounded-2xl">
           <AlertCircle size={32} className="mb-3 text-midnight-ink" />
           <p className="font-[600] text-sm">Lỗi tải dữ liệu</p>
           <p className="text-xs text-graphite mt-1">{error}</p>
-        </Card>
+        </div>
       ) : campaigns.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-24 text-center">
+        <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-fog rounded-2xl">
           <div className="w-16 h-16 rounded-full bg-mist flex items-center justify-center mb-4 text-graphite">
             <Inbox size={28} className="opacity-80" />
           </div>
@@ -180,15 +173,14 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
             Chưa có chiến dịch nào
           </p>
           <p className="text-xs text-graphite mt-1 max-w-[320px] leading-relaxed">
-            Hệ thống trống. Hãy tạo chiến dịch email đầu tiên để bắt đầu gửi
-            email tiếp thị qua AWS SES.
+            Hãy tạo chiến dịch email đầu tiên để bắt đầu gửi email qua AWS SES.
           </p>
           <Button variant="primary" className="mt-6" onClick={onNewCampaign}>
             <Plus size={16} /> Tạo chiến dịch mới
           </Button>
-        </Card>
+        </div>
       ) : filteredCampaigns.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-white border border-fog rounded-2xl">
           <Inbox size={32} className="mb-3 text-ash" />
           <p className="font-[600] text-sm text-midnight-ink">
             Không có kết quả khớp
@@ -196,26 +188,26 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
           <p className="text-xs text-graphite mt-1">
             Thay đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái.
           </p>
-        </Card>
+        </div>
       ) : (
-        <div className="border border-fog rounded-2xl overflow-hidden bg-white">
+        <div className="bg-white border border-fog rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-fog bg-mist">
-                  <th className="px-6 py-4 font-[600] uppercase tracking-wider text-graphite">
+                <tr className="border-b border-fog">
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash">
                     Chiến dịch
                   </th>
-                  <th className="px-6 py-4 font-[600] uppercase tracking-wider text-graphite w-[140px]">
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash w-[130px]">
                     Trạng thái
                   </th>
-                  <th className="px-6 py-4 font-[600] uppercase tracking-wider text-graphite w-[200px]">
-                    Tiến trình gửi
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash w-[220px]">
+                    Tiến trình
                   </th>
-                  <th className="px-6 py-4 font-[600] uppercase tracking-wider text-graphite w-[160px]">
+                  <th className="px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash w-[150px]">
                     Ngày tạo
                   </th>
-                  <th className="px-6 py-4 font-[600] uppercase tracking-wider text-graphite text-right w-[140px]">
+                  <th className="px-6 py-4 font-[400] text-[12px] text-left uppercase tracking-wider text-ash w-[160px]">
                     Chi tiết
                   </th>
                 </tr>
@@ -243,14 +235,12 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
                   return (
                     <tr
                       key={c.id}
-                      className="hover:bg-mist transition-colors group"
+                      className="hover:bg-mist transition-colors group cursor-pointer"
+                      onClick={() => onViewDetail(c.id)}
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col pr-4 min-w-0">
-                          <span
-                            className="font-[456] text-midnight-ink text-sm group-hover:underline cursor-pointer truncate"
-                            onClick={() => onViewDetail(c.id)}
-                          >
+                          <span className="font-[440] text-sm text-midnight-ink truncate">
                             {c.name}
                           </span>
                           <span className="text-xs text-graphite mt-0.5 truncate max-w-[280px]">
@@ -260,28 +250,29 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center text-[10px] font-[600] px-2 py-0.5 rounded-full border ${statusBadge[c.status]}`}
+                          className={cn(
+                            "inline-flex items-center text-[11px] font-[440] px-3 py-0.5 rounded-full border",
+                            statusBadge[c.status],
+                          )}
                         >
                           {statusLabel[c.status]}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <div className="flex justify-between text-[10px] text-graphite mb-1">
-                            <span className="font-semibold">
-                              {progressPercent}%
-                            </span>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex justify-between text-[11px] text-graphite font-[440]">
+                            <span>{progressPercent}%</span>
                             <span>
                               {c.sentCount + c.failedCount} / {total}
                             </span>
                           </div>
-                          <div className="w-full h-1 bg-fog rounded-full overflow-hidden">
+                          <div className="w-full h-1.5 bg-fog rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-midnight-ink transition-all duration-300"
+                              className="h-full bg-midnight-ink transition-all duration-300 rounded-full"
                               style={{ width: `${progressPercent}%` }}
                             />
                           </div>
-                          <div className="flex gap-2 mt-1 text-[9px] text-ash font-medium">
+                          <div className="flex gap-3 text-[10px] text-ash font-[440]">
                             <span>
                               Thành công:{" "}
                               <strong className="text-graphite font-semibold">
@@ -294,29 +285,19 @@ export function DashboardPage({ onNewCampaign, onViewDetail }: Props) {
                                 {c.failedCount}
                               </strong>
                             </span>
-                            {c.sentCount + c.failedCount > 0 && (
-                              <span>
-                                Tỉ lệ:{" "}
-                                <strong className="text-green-700 font-semibold">
-                                  {Math.round(
-                                    (c.sentCount /
-                                      (c.sentCount + c.failedCount)) *
-                                      100,
-                                  )}
-                                  %
-                                </strong>
-                              </span>
-                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-graphite whitespace-nowrap">
+                      <td className="px-6 py-4 text-sm text-graphite font-[440] whitespace-nowrap">
                         {date}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-left">
                         <button
-                          onClick={() => onViewDetail(c.id)}
-                          className="px-3.5 py-1.5 rounded-full text-[11px] font-[440] border border-midnight-ink bg-transparent text-midnight-ink hover:bg-midnight-ink hover:text-white cursor-pointer transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewDetail(c.id);
+                          }}
+                          className="px-3.5 py-1.5 rounded-full text-[11px] font-[500] border border-midnight-ink bg-transparent text-midnight-ink hover:bg-midnight-ink hover:text-white cursor-pointer transition-all duration-200"
                         >
                           Xem báo cáo
                         </button>

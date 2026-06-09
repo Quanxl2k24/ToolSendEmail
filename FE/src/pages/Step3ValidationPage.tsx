@@ -1,5 +1,4 @@
 import { FileSpreadsheet, FileText, CheckCircle, Info } from 'lucide-react';
-import { Card, CardTitle } from '../components/ui';
 
 interface Props {
   fileName: string;
@@ -13,24 +12,24 @@ interface Props {
 export function Step3ValidationPage(props: Props) {
   if (!props.fileUploaded) {
     return (
-      <Card className="!p-8 text-center">
-        <CardTitle>
+      <div className="bg-white border border-fog rounded-2xl p-6 text-center">
+        <h2 className="text-lg font-[600] text-midnight-ink flex items-center justify-center gap-2 mb-4">
           <Info size={22} />
           Chưa có dữ liệu
-        </CardTitle>
-        <p className="text-sm text-graphite mt-4">Vui lòng tải lên file dữ liệu hoặc kết nối Google Sheet ở bước 1.</p>
-      </Card>
+        </h2>
+        <p className="text-sm text-graphite">Vui lòng tải lên file dữ liệu hoặc kết nối Google Sheet ở bước 1.</p>
+      </div>
     );
   }
 
   return (
-    <Card className="!p-8">
-      <CardTitle>
+    <div className="bg-white border border-fog rounded-2xl p-6">
+      <h2 className="text-lg font-[600] text-midnight-ink flex items-center gap-2 mb-1">
         <CheckCircle size={22} />
         Xác nhận & Tổng quan Chiến dịch
-      </CardTitle>
+      </h2>
       <p className="text-sm text-graphite mb-8">
-        Kiểm tra lại thông tin trước khi kích hoạt gửi. Dữ liệu sẽ được xác thực tự động khi gửi.
+        Kiểm tra lại thông tin trước khi kích hoạt gửi.
       </p>
 
       <div className="grid gap-4 max-w-[600px] w-full">
@@ -80,6 +79,6 @@ export function Step3ValidationPage(props: Props) {
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, type Socket } from "socket.io";
 import type { Server as HttpServer } from "http";
+import { verifyJwt } from "../../core/utils/jwt.util.js";
 import { logger } from "../../core/utils/logger.js";
 
 /**
@@ -8,11 +9,9 @@ import { logger } from "../../core/utils/logger.js";
  * Socket.io gateway for real-time progress updates.
  *
  * Client usage:
- *   const socket = io("http://localhost:3000");
+ *   const socket = io("http://localhost:3000", { auth: { token } });
  *   socket.emit("join_campaign", "campaign_uuid_here");
- *   socket.on("progress_update", (data) => {
- *     console.log(data); // { sent, failed, total, status }
- *   });
+ *   socket.on("progress_update", (data) => { ... });
  */
 
 export interface ProgressPayload {
@@ -26,7 +25,7 @@ let io: SocketIOServer | null = null;
 
 /**
  * Initialize Socket.io with the HTTP server.
- * Call this once in app.ts before starting to listen.
+ * Authenticates connections via JWT from socket handshake auth.
  */
 export const initSocketGateway = (httpServer: HttpServer): SocketIOServer => {
   if (io) return io;
@@ -38,15 +37,38 @@ export const initSocketGateway = (httpServer: HttpServer): SocketIOServer => {
     },
   });
 
-  io.on("connection", (socket: Socket) => {
-    logger.info("Socket connected", { socketId: socket.id });
+  // Authenticate socket connections via JWT
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token as string | undefined;
+    if (!token) {
+      return next(new Error("Missing authentication token."));
+    }
 
-    // Client joins a campaign room to receive progress updates for that specific campaign
+    // Mock mode for development
+    if (token.startsWith("mock_")) {
+      (socket as any).userEmail = token.split("_")[1] || "dev-user@example.com";
+      return next();
+    }
+
+    try {
+      const payload = verifyJwt(token);
+      (socket as any).userEmail = payload.email;
+      next();
+    } catch {
+      next(new Error("Invalid or expired token."));
+    }
+  });
+
+  io.on("connection", (socket: Socket) => {
+    const userEmail = (socket as any).userEmail as string;
+    logger.info("Socket connected", { socketId: socket.id, userEmail });
+
     socket.on("join_campaign", (campaignId: string) => {
       socket.join(`campaign_${campaignId}`);
       logger.info("Socket joined campaign room", {
         socketId: socket.id,
         campaignId,
+        userEmail,
       });
     });
 
@@ -55,7 +77,7 @@ export const initSocketGateway = (httpServer: HttpServer): SocketIOServer => {
     });
 
     socket.on("disconnect", () => {
-      logger.info("Socket disconnected", { socketId: socket.id });
+      logger.info("Socket disconnected", { socketId: socket.id, userEmail });
     });
   });
 
@@ -65,7 +87,6 @@ export const initSocketGateway = (httpServer: HttpServer): SocketIOServer => {
 
 /**
  * Emit a progress update to all clients in a campaign's room.
- * Called by the queue worker after each job completes or fails.
  */
 export const emitProgressUpdate = (
   campaignId: string,

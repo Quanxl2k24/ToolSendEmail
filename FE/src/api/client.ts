@@ -1,12 +1,16 @@
-import { refreshTokenSilently } from './auth';
+import { getJwt, refreshJwt } from './auth';
+import { AUTH } from '../constants';
 
 const DEFAULT_BASE_URL = 'http://localhost:3000';
 
 function getBaseUrl(): string {
-  return import.meta.env.VITE_API_URL ?? DEFAULT_BASE_URL;
+  return AUTH.API_URL;
 }
 
 export function getToken(): string | null {
+  const jwt = getJwt();
+  if (jwt) return jwt;
+  // Fallback to legacy google_user accessToken (bypass mode / backward compat)
   try {
     const raw = localStorage.getItem('google_user');
     if (!raw) return null;
@@ -33,9 +37,7 @@ let refreshPromise: Promise<string | null> | null = null;
 
 async function getRefreshedToken(): Promise<string | null> {
   if (!refreshPromise) {
-    refreshPromise = refreshTokenSilently()
-      .then(() => getToken())
-      .catch(() => null)
+    refreshPromise = refreshJwt()
       .finally(() => { refreshPromise = null; });
   }
   return refreshPromise;

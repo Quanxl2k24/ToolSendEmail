@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import multer from "multer";
 import asyncCatch from "../../core/middlewares/asyncCatch.middleware.js";
-import { googleAuthMiddleware } from "../../core/middlewares/auth.middleware.js";
+import { jwtAuthMiddleware } from "../../core/middlewares/auth.middleware.js";
 import {
   sendCampaign,
   cancelCampaign,
@@ -24,8 +24,8 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// All campaign routes require Google Auth
-router.use(googleAuthMiddleware);
+// All campaign routes require JWT authentication
+router.use(jwtAuthMiddleware);
 
 /**
  * @openapi
@@ -101,7 +101,6 @@ router.post(
     const options: Parameters<typeof sendCampaign>[0] = {
       body: req.body as Record<string, any>,
       userEmail: req.user!.email,
-      accessToken: req.user!.accessToken,
     };
     if (req.file) options.file = req.file;
 
@@ -170,7 +169,7 @@ router.post(
   asyncCatch(async (req: Request, res: Response) => {
     const { googleSheetUrl } = req.body as { googleSheetUrl?: string };
     if (!googleSheetUrl) throw new AppError("googleSheetUrl là bắt buộc.", 400);
-    const result = await previewSheet(googleSheetUrl, req.user!.accessToken);
+    const result = await previewSheet(googleSheetUrl, req.user!.email);
     res.status(200).json({ success: true, ...result });
   }),
 );
@@ -244,8 +243,7 @@ router.post(
   "/:id/sync-sheet",
   asyncCatch(async (req: Request, res: Response) => {
     const campaignId = String(req.params["id"]);
-    const token = req.body?.accessToken ?? req.user!.accessToken;
-    const result = await syncCampaignToSheet(campaignId, req.user!.email, token);
+    const result = await syncCampaignToSheet(campaignId, req.user!.email);
     res.status(200).json({ success: true, ...result });
   }),
 );

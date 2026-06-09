@@ -5,6 +5,8 @@ import { emitProgressUpdate } from "../websockets/events.gateway.js";
 import { logger } from "../../core/utils/logger.js";
 import { getRedisConnection, EMAIL_QUEUE_NAME } from "./queue.config.js";
 import type { EmailJobData } from "./queue.producer.js";
+import { getAccessToken } from "../auth/token.service.js";
+import { updateSheetCellStatus } from "../../core/utils/googleSheetsWriter.util.js";
 
 /**
  * queue.worker.ts
@@ -62,6 +64,33 @@ export const startEmailWorker = (): void => {
           sentAt: new Date(),
         },
       });
+
+      // ── Step 4: Update Google Sheet status (nếu có) ───────────────────────
+      const { sheetUpdateInfo } = job.data;
+      if (sheetUpdateInfo) {
+        try {
+          const camp = await prisma.campaign.findUnique({
+            where: { id: campaignId },
+            select: { createdBy: true },
+          });
+          if (camp) {
+            const token = await getAccessToken(camp.createdBy);
+            await updateSheetCellStatus(
+              sheetUpdateInfo.spreadsheetId,
+              sheetUpdateInfo.sheetName,
+              token,
+              sheetUpdateInfo.rowIndex,
+              "SENT",
+            );
+          }
+        } catch (sheetErr) {
+          logger.warn("Failed to update sheet status", {
+            logId,
+            campaignId,
+            err: String(sheetErr),
+          });
+        }
+      }
 
       logger.info(`Email sent`, { logId, to, messageId });
     },

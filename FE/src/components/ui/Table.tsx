@@ -19,7 +19,7 @@ export function Table({ className, children, ...rest }: HTMLAttributes<HTMLTable
 
 export function Th({ className, children, ...rest }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <th className={cn('bg-mist px-4 py-3 font-semibold text-midnight-ink sticky top-0 z-2 border-b border-fog', className)} {...rest}>
+    <th className={cn('bg-white px-6 py-4 font-[400] text-[12px] uppercase tracking-wider text-ash sticky top-0 z-2 border-b border-fog', className)} {...rest}>
       {children}
     </th>
   );
@@ -47,7 +47,7 @@ export function Tr({ status, className, children, ...rest }: TrProps) {
 
 export function Td({ className, children, ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={cn('px-4 py-3 align-middle', className)} {...rest}>
+    <td className={cn('px-6 py-4 align-middle text-sm font-[440] text-midnight-ink', className)} {...rest}>
       {children}
     </td>
   );

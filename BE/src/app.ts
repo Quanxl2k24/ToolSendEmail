@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import http from "http";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 // Core
 import { setupSwagger } from "./core/config/swagger.js";
@@ -26,6 +27,7 @@ const server = http.createServer(app);
 app.use(cors({ origin: process.env.FRONTEND_URL ?? "*" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // ── Initialize Socket.io ───────────────────────────────────────────────────
 initSocketGateway(server);

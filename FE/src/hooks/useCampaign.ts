@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 const DEFAULT_HTML = `<!DOCTYPE html>
 <html>
@@ -32,35 +32,49 @@ const DEFAULT_HTML = `<!DOCTYPE html>
 
 export function useCampaign() {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('Chiến dịch Email mới');
-  const [subject, setSubject] = useState('Chào {{Họ Tên}}, ưu đãi dành riêng cho bạn!');
-  const [preheader, setPreheader] = useState('Xem ưu đãi đặc biệt từ chúng tôi');
-  const [senderName, setSenderName] = useState('Email Marketing');
+  const [name, setName] = useState("Chiến dịch Email mới");
+  const [subject, setSubject] = useState(
+    "Chào {{Họ Tên}}, ưu đãi dành riêng cho bạn!",
+  );
+  const [preheader, setPreheader] = useState(
+    "Xem ưu đãi đặc biệt từ chúng tôi",
+  );
+  const [senderName, setSenderName] = useState("Email Marketing");
   const [htmlBody, setHtmlBody] = useState(DEFAULT_HTML);
-  const [customCSS, setCustomCSS] = useState('');
+  const [customCSS, setCustomCSS] = useState("");
 
-  const goNext = useCallback(() => setStep(s => Math.min(s + 1, 4)), []);
-  const goBack = useCallback(() => setStep(s => Math.max(s - 1, 1)), []);
+  const goNext = useCallback(() => setStep((s) => Math.min(s + 1, 4)), []);
+  const goBack = useCallback(() => setStep((s) => Math.max(s - 1, 1)), []);
   const goTo = useCallback((s: number) => setStep(s), []);
 
   const reset = useCallback(() => {
     setStep(1);
-    setName('Chiến dịch Email mới');
-    setSubject('Chào {{Họ Tên}}, ưu đãi dành riêng cho bạn!');
-    setPreheader('Xem ưu đãi đặc biệt từ chúng tôi');
-    setSenderName('Email Marketing');
+    setName("Chiến dịch Email mới");
+    setSubject("Chào {{Họ Tên}}, ưu đãi dành riêng cho bạn!");
+    setPreheader("Xem ưu đãi đặc biệt từ chúng tôi");
+    setSenderName("Email Marketing");
     setHtmlBody(DEFAULT_HTML);
-    setCustomCSS('');
+    setCustomCSS("");
   }, []);
 
   return {
-    step, setStep, goNext, goBack, goTo,
-    name, setName,
-    subject, setSubject,
-    preheader, setPreheader,
-    senderName, setSenderName,
-    htmlBody, setHtmlBody,
-    customCSS, setCustomCSS,
+    step,
+    setStep,
+    goNext,
+    goBack,
+    goTo,
+    name,
+    setName,
+    subject,
+    setSubject,
+    preheader,
+    setPreheader,
+    senderName,
+    setSenderName,
+    htmlBody,
+    setHtmlBody,
+    customCSS,
+    setCustomCSS,
     reset,
   } as const;
 }

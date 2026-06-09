@@ -44,4 +44,17 @@
 
   --shadow-subtle: rgba(64, 64, 64, 0.16) 0px 0px 0px 1px inset;
   --shadow-xl: rgba(0, 0, 0, 0.04) 0px 8px 40px 0px;
+
+  --sidebar-width-expanded: 240px;
+  --sidebar-width-collapsed: 64px;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-fog) transparent;
 }

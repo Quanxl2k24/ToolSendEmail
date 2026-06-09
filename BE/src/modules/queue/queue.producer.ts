@@ -12,12 +12,11 @@ export interface EmailJobData {
   subject: string;      // Tiêu đề email
   html: string;         // Nội dung HTML (đã được render với biến động)
   recipientName?: string;
-  // Thông tin Google Sheets để ghi status
+  // Thông tin Google Sheets để ghi status (worker tự lấy token từ DB)
   sheetUpdateInfo?: {
     spreadsheetId: string;
     sheetName: string;
     rowIndex: number;
-    userEmail: string;
   };
 }
 

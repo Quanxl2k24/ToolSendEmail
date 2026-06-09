@@ -3,7 +3,7 @@ import type { LogEntry } from '../types';
 import { sendCampaign, cancelCampaign, syncCampaignToSheet } from '../api/campaigns';
 import { connectSocket, disconnectSocket, joinCampaign, onProgressUpdate } from '../api/socket';
 import { ApiError, getToken } from '../api/client';
-import { refreshTokenSilently } from '../api/auth';
+import { refreshJwt } from '../api/auth';
 export interface CampaignSendData {
   name: string;
   subject: string;
@@ -29,6 +29,25 @@ export function useSendingEngine() {
       cleanupRef.current?.();
       disconnectSocket();
     };
+  }, []);
+
+  const syncToSheet = useCallback(async (cId: string) => {
+    try {
+      let token = getToken();
+      if (!token) return;
+
+      try {
+        await syncCampaignToSheet(cId);
+      } catch {
+        await refreshJwt();
+        token = getToken();
+        if (token) await syncCampaignToSheet(cId);
+      }
+
+      setLogs(prev => [...prev, { id: Date.now(), text: `[${new Date().toLocaleTimeString()} INFO] Đã đồng bộ trạng thái lên Google Sheet.`, type: 'info' }]);
+    } catch {
+      // Sync không thành công - user có thể sync thủ công sau
+    }
   }, []);
 
   const startSending = useCallback(async (data: CampaignSendData) => {
@@ -96,7 +115,7 @@ export function useSendingEngine() {
       setError(msg);
       setLogs(prev => [...prev, { id: Date.now(), text: `[ERROR] ${msg}`, type: 'failed' }]);
     }
-  }, []);
+  }, [syncToSheet]);
 
   const stopSending = useCallback(async () => {
     if (campaignId) {
@@ -112,26 +131,6 @@ export function useSendingEngine() {
     cleanupRef.current = null;
     disconnectSocket();
   }, [campaignId]);
-
-  const syncToSheet = useCallback(async (campaignId: string) => {
-    try {
-      let token = getToken();
-      if (!token) return;
-
-      try {
-        await syncCampaignToSheet(campaignId);
-      } catch {
-        // Token hết hạn → refresh silent rồi thử lại
-        await refreshTokenSilently();
-        token = getToken();
-        if (token) await syncCampaignToSheet(campaignId);
-      }
-
-      setLogs(prev => [...prev, { id: Date.now(), text: `[${new Date().toLocaleTimeString()} INFO] Đã đồng bộ trạng thái lên Google Sheet.`, type: 'info' }]);
-    } catch {
-      // Sync không thành công - user có thể sync thủ công sau
-    }
-  }, []);
 
   const resetSending = useCallback(() => {
     cleanupRef.current?.();

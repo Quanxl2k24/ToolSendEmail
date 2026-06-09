@@ -17,7 +17,7 @@ export function Button({ variant = 'primary', className, children, ...rest }: Pr
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-[600] cursor-pointer transition-all duration-200 outline-none',
+        'inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-[600] cursor-pointer transition-all duration-200 outline-none shrink-0 whitespace-nowrap',
         variants[variant],
         className,
       )}

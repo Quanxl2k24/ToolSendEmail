@@ -19,7 +19,7 @@ import { batchUpdateSheetStatuses } from "../../core/utils/googleSheetsWriter.ut
 import { AppError } from "../../core/exceptions/appError.js";
 import { logger } from "../../core/utils/logger.js";
 import { checkAndIncrementQuota } from "./quota.service.js";
-import { upsertUserToken } from "../auth/token.service.js";
+import { getAccessToken } from "../auth/token.service.js";
 import prisma from "../../core/database/prisma.service.js";
 
 function buildPreview(rows: Record<string, string>[]) {
@@ -39,11 +39,12 @@ export const previewFile = async (file: Express.Multer.File) => {
 
 export const previewSheet = async (
   googleSheetUrl: string,
-  accessToken: string,
+  userEmail: string,
 ) => {
   const { spreadsheetId } = parseGoogleSheetUrl(googleSheetUrl);
   if (!spreadsheetId) throw new AppError("URL Google Sheets không hợp lệ.", 400);
 
+  const accessToken = await getAccessToken(userEmail);
   const result = await parseGoogleSheet(googleSheetUrl, accessToken);
   const preview = buildPreview(result.rows);
   return {
@@ -75,11 +76,10 @@ interface SendCampaignOptions {
   body: Record<string, any>;
   file?: Express.Multer.File;
   userEmail: string;
-  accessToken: string;
 }
 
 export const sendCampaign = async (options: SendCampaignOptions) => {
-  const { body, file, userEmail, accessToken } = options;
+  const { body, file, userEmail } = options;
 
   // ── Step 1: Validate campaign metadata (name, subject, htmlBody) ──────────
   const parsed = CreateCampaignSchema.safeParse(body);
@@ -107,8 +107,7 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
     isGoogleSheet = true;
     logger.info("Parsing Google Sheet", { url: googleSheetUrl });
 
-    await upsertUserToken(userEmail, accessToken);
-
+    const accessToken = await getAccessToken(userEmail);
     const result = await parseGoogleSheet(googleSheetUrl, accessToken);
     rawData = result.rows;
     resolvedSheetName = result.sheetName;
@@ -232,7 +231,6 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
           spreadsheetId: string;
           sheetName: string;
           rowIndex: number;
-          userEmail: string;
         };
       } = {
         logId: log.id,
@@ -249,7 +247,6 @@ export const sendCampaign = async (options: SendCampaignOptions) => {
           spreadsheetId,
           sheetName: resolvedSheetName,
           rowIndex: log.rowIndex,
-          userEmail,
         };
       }
       return job;
@@ -344,7 +341,6 @@ export const cancelCampaign = async (campaignId: string, userEmail: string) => {
 export const syncCampaignToSheet = async (
   campaignId: string,
   userEmail: string,
-  accessToken: string,
 ) => {
   const campaign = await findCampaignById(campaignId);
   if (!campaign) throw new AppError("Không tìm thấy chiến dịch.", 404);
@@ -355,6 +351,8 @@ export const syncCampaignToSheet = async (
 
   const { spreadsheetId } = parseGoogleSheetUrl(campaign.googleSheetUrl);
   if (!spreadsheetId) throw new AppError("URL Google Sheet không hợp lệ.", 400);
+
+  const accessToken = await getAccessToken(userEmail);
 
   const logs = await prisma.mailLog.findMany({
     where: {
